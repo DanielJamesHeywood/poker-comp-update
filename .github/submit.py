@@ -1,5 +1,7 @@
+import importlib.util
 import json
 import random
+from pathlib import Path
 
 from poker.action import Action
 from poker.card import Card, Rank, Suit
@@ -7,8 +9,14 @@ from poker.engine import Match
 from poker.game_state import GameState
 from poker.player import Blind, MyPlayer, Player
 
-from bots.chaos import myAI as randomAI
 from myAI import myAI
+
+# The bots folder isn't part of the installed package, so the random bot is loaded from its file like the poker command does
+chaos_path = Path(__file__).resolve().parent.parent / "bots" / "chaos.py"
+chaos_spec = importlib.util.spec_from_file_location("chaos", chaos_path)
+chaos = importlib.util.module_from_spec(chaos_spec)
+chaos_spec.loader.exec_module(chaos)
+randomAI = chaos.myAI
 
 # Bots are scored against each other in tournaments, so the score on a push is only a rough guide.
 # A bot which returns an Action on a range of sample states gets WORKING_SCORE, and then up to the rest for its win rate in heads-up matches against the random bot.
