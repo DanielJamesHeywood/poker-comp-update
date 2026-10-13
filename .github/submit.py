@@ -44,8 +44,9 @@ def sample_state(rng: random.Random) -> GameState:
     rng.shuffle(players)
 
     chips_in_pot = sum(player.chips_bet for player in players) + rng.choice([0, rng.randint(1, 500)])
+    big_blind = rng.choice([2, 3, 4, 6, 8, 10, 15, 20])
 
-    return GameState(my_player=my_player, players=players, chips_in_pot=chips_in_pot, community_cards=community_cards)
+    return GameState(my_player=my_player, players=players, chips_in_pot=chips_in_pot, community_cards=community_cards, small_blind=big_blind // 2, big_blind=big_blind, ante=rng.choice([0, big_blind]))
 
 
 def check_states() -> list[str]:
