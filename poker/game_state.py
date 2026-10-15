@@ -1,4 +1,4 @@
-from .player import Player
+from .player import Player, MyPlayer
 from .card import Card
 
 
