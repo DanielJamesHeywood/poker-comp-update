@@ -49,8 +49,8 @@ def ease(amount: float) -> float:
 
 
 class PokerRenderer:
-    def __init__(self, *, players: list[str], total_hands: int, fullscreen: bool = False, render_fps: int = 60):
-        self.players = [name.encode("ascii", "replace").decode() for name in players]  # The font only has ASCII
+    def __init__(self, *, players: list[str], total_hands: int, fullscreen: bool = False, render_fps: int = 60, title: str = "WAI Poker", tile: tuple[int, int] = (0, 1)):
+        self.players = self.names(players)  # Who is at the table. Players can come and go between hands, so each hand says who was there.
         self.total_hands = total_hands
 
         # Everything played so far, and where playback has got to in it
@@ -61,6 +61,8 @@ class PokerRenderer:
         self.speed = 1
         self.paused = False
         self.finished = False
+        self.ending: tuple[str | None, list[str], bool, float | None] = (None, [], True, None)  # What to say once the last hand is over
+        self.ended_for = 0.0  # Seconds since the last hand finished being shown
         self.step_requested = False
         self.restart_requested = False
         self.prepared_hand = -1
@@ -82,11 +84,13 @@ class PokerRenderer:
 
         rl.set_trace_log_level(rl.LOG_NONE)
         rl.set_config_flags(rl.FLAG_WINDOW_RESIZABLE)
-        rl.init_window(WIDTH, HEIGHT, "WAI Poker")
+        rl.init_window(WIDTH, HEIGHT, title)
         rl.set_window_min_size(WIDTH // 2, HEIGHT // 2)
 
         if fullscreen:
             rl.toggle_borderless_windowed()
+        elif tile[1] > 1:
+            self.place_window(*tile)
 
         self.canvas = rl.load_render_texture(WIDTH * CANVAS_ZOOM, HEIGHT * CANVAS_ZOOM)
         rl.set_texture_filter(self.canvas.texture, rl.TEXTURE_FILTER_BILINEAR)
@@ -95,6 +99,27 @@ class PokerRenderer:
 
         self.cards = self.load_sprites("cards.png")
         self.chips = self.load_sprites("chips.png")
+
+    def place_window(self, index: int, count: int):
+        # With more than one table, the windows are laid out in a grid across the screen, each as big as will fit
+        monitor = rl.get_current_monitor()
+        screen_width, screen_height = rl.get_monitor_width(monitor), rl.get_monitor_height(monitor) * 0.92  # Leaves room for title bars and a taskbar
+
+        if screen_width <= 0 or screen_height <= 0:
+            return
+
+        def size(columns: int) -> float:
+            return min(screen_width / columns, screen_height / math.ceil(count / columns) * WIDTH / HEIGHT)
+
+        columns = max(range(1, count + 1), key=size)
+        width = max(int(size(columns)), WIDTH // 2)
+        height = width * HEIGHT // WIDTH
+        rl.set_window_size(width, height)
+        rl.set_window_position(index % columns * width, int(rl.get_monitor_height(monitor) * 0.04) + index // columns * height)
+
+    @staticmethod
+    def names(players: list[str]) -> list[str]:
+        return [name.encode("ascii", "replace").decode() for name in players]  # The font only has ASCII
 
     def load_sprites(self, name: str) -> rl.Texture:
         image = rl.load_image(str(Path(__file__).parent / "assets" / name))
@@ -126,9 +151,15 @@ class PokerRenderer:
             self.step_requested = False
             self.advance()
 
-    def finish(self):
-        # There are no more hands to come
+    def finish(self, title: str | None = None, lines: list[str] = (), hints: bool = True, close_after: float | None = None):
+        # There are no more hands to come. Once the last one is over, the title and lines are shown over the table, or who won
+        # if there is no title. With close_after, the window closes by itself that many seconds later.
         self.finished = True
+        self.ending = (title, list(lines), hints, close_after)
+
+    def should_close(self) -> bool:
+        close_after = self.ending[3]
+        return close_after is not None and self.ended_for >= close_after
 
     def should_restart(self) -> bool:
         if self.restart_requested:
@@ -137,12 +168,17 @@ class PokerRenderer:
 
         return False
 
-    def reset(self):
+    def reset(self, players: list[str] | None = None):
+        if players is not None:
+            self.players = self.names(players)
+
         self.hands = []
         self.hand = 0
         self.frame = 0
         self.clock = 0.0
         self.finished = False
+        self.ending = (None, [], True, None)
+        self.ended_for = 0.0
         self.step_requested = False
         self.prepared_hand = -1
 
@@ -158,6 +194,9 @@ class PokerRenderer:
             if self.clock >= self.duration():
                 if self.paused or not self.advance():
                     self.clock = self.duration()
+
+        if self.ended():
+            self.ended_for += rl.get_frame_time()
 
         self.draw()
 
@@ -176,6 +215,9 @@ class PokerRenderer:
 
     def duration(self) -> float:
         return ANIMATION + HOLDS[self.frames()[self.frame]["kind"]]
+
+    def ended(self) -> bool:
+        return self.finished and bool(self.hands) and self.at_end() and self.clock >= self.duration()
 
     def at_end(self) -> bool:
         return self.hand == len(self.hands) - 1 and self.frame == len(self.frames()) - 1
@@ -266,7 +308,7 @@ class PokerRenderer:
             self.draw_text_centred(self.fit(now["text"], 20, TABLE_WIDTH - 60), TABLE_WIDTH // 2, 636, 20, self.TEXT)
             self.draw_panel(hand, now)
 
-            if self.finished and self.at_end() and self.clock >= self.duration():
+            if self.ended():
                 self.draw_match_over(now)
         else:
             self.draw_panel(None, None)
@@ -388,6 +430,7 @@ class PokerRenderer:
     def prepare(self, hand: dict):
         # Works out the lines of the log for a hand, and which chips are in the pot after each thing that happens in it
         self.prepared_hand = self.hand
+        self.players = self.names(hand.get("players", self.players))
         self.log_lines = []
         self.pot_chips = []
 
@@ -525,15 +568,25 @@ class PokerRenderer:
 
     def draw_match_over(self, now: dict):
         rl.draw_rectangle(0, 0, TABLE_WIDTH, HEIGHT, rl.Color(0, 0, 0, 170))
+        title, lines, hints, _ = self.ending
 
-        most = max(now["stacks"])
-        leaders = [name for name, chips in zip(self.players, now["stacks"]) if chips == most]
-        result = f"{leaders[0]} wins with {most:,} chips" if len(leaders) == 1 else f"{' and '.join(leaders)} tie on {most:,} chips"
+        if title is None:
+            most = max(now["stacks"])
+            leaders = [name for name, chips in zip(self.players, now["stacks"]) if chips == most]
+            title = "MATCH OVER"
+            lines = [f"{leaders[0]} wins with {most:,} chips" if len(leaders) == 1 else f"{' and '.join(leaders)} tie on {most:,} chips"]
 
-        self.draw_text_centred("MATCH OVER", TABLE_WIDTH // 2, 240, 60, self.TEXT)
-        self.draw_text_centred(self.fit(result, 30, TABLE_WIDTH - 80), TABLE_WIDTH // 2, 320, 30, self.GOLD)
-        self.draw_text_centred("Press R to restart", TABLE_WIDTH // 2, 380, 20, self.TEXT)
-        self.draw_text_centred("Press ESC to quit", TABLE_WIDTH // 2, 410, 20, self.SOFT)
+        self.draw_text_centred(title, TABLE_WIDTH // 2, 240, 60, self.TEXT)
+        y = 320
+
+        for index, line in enumerate(lines):
+            size = 30 if index == 0 else 20
+            self.draw_text_centred(self.fit(line, size, TABLE_WIDTH - 80), TABLE_WIDTH // 2, y, size, self.GOLD if index == 0 else self.SOFT)
+            y += size + 10
+
+        if hints:
+            self.draw_text_centred("Press R to restart", TABLE_WIDTH // 2, y + 20, 20, self.TEXT)
+            self.draw_text_centred("Press ESC to quit", TABLE_WIDTH // 2, y + 50, 20, self.SOFT)
 
     # ---- Helpers
 
