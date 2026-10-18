@@ -83,14 +83,21 @@ class PokerRenderer:
         self.PLAYER_COLOURS = [rl.Color(*colour, 255) for colour in ((57, 135, 229), (217, 89, 38), (25, 158, 112), (201, 133, 0), (213, 81, 129), (0, 131, 0), (144, 133, 233), (230, 103, 103))]
 
         rl.set_trace_log_level(rl.LOG_NONE)
+        size, position = (WIDTH, HEIGHT), None
+
+        if not fullscreen and tile[1] > 1:
+            size, position = self.tile_layout(*tile)
+
         rl.set_config_flags(rl.FLAG_WINDOW_RESIZABLE)
-        rl.init_window(WIDTH, HEIGHT, title)
+        rl.init_window(*size, title)
         rl.set_window_min_size(WIDTH // 2, HEIGHT // 2)
+
+        if position is not None:
+            rl.set_window_position(*position)
+            rl.clear_window_state(rl.FLAG_WINDOW_HIDDEN)  # The hidden window opened to measure the screen leaves this flag set
 
         if fullscreen:
             rl.toggle_borderless_windowed()
-        elif tile[1] > 1:
-            self.place_window(*tile)
 
         self.canvas = rl.load_render_texture(WIDTH * CANVAS_ZOOM, HEIGHT * CANVAS_ZOOM)
         rl.set_texture_filter(self.canvas.texture, rl.TEXTURE_FILTER_BILINEAR)
@@ -100,13 +107,20 @@ class PokerRenderer:
         self.cards = self.load_sprites("cards.png")
         self.chips = self.load_sprites("chips.png")
 
-    def place_window(self, index: int, count: int):
-        # With more than one table, the windows are laid out in a grid across the screen, each as big as will fit
+    @staticmethod
+    def tile_layout(index: int, count: int) -> tuple[tuple[int, int], tuple[int, int] | None]:
+        # With more than one table, the windows are laid out in a grid across the screen, each as big as will fit.
+        # raylib can only measure the screen once a window is open, so a hidden one is opened to do it and then closed.
+        # The real window is then opened at the right size, because resizing it afterwards draws into only part of it on some screens.
+        rl.set_config_flags(rl.FLAG_WINDOW_HIDDEN)
+        rl.init_window(WIDTH // 2, HEIGHT // 2, "")
         monitor = rl.get_current_monitor()
-        screen_width, screen_height = rl.get_monitor_width(monitor), rl.get_monitor_height(monitor) * 0.92  # Leaves room for title bars and a taskbar
+        full_height = rl.get_monitor_height(monitor)
+        screen_width, screen_height = rl.get_monitor_width(monitor), full_height * 0.92  # Leaves room for title bars and a taskbar
+        rl.close_window()
 
         if screen_width <= 0 or screen_height <= 0:
-            return
+            return (WIDTH, HEIGHT), None
 
         def size(columns: int) -> float:
             return min(screen_width / columns, screen_height / math.ceil(count / columns) * WIDTH / HEIGHT)
@@ -114,8 +128,7 @@ class PokerRenderer:
         columns = max(range(1, count + 1), key=size)
         width = max(int(size(columns)), WIDTH // 2)
         height = width * HEIGHT // WIDTH
-        rl.set_window_size(width, height)
-        rl.set_window_position(index % columns * width, int(rl.get_monitor_height(monitor) * 0.04) + index // columns * height)
+        return (width, height), (index % columns * width, int(full_height * 0.04) + index // columns * height)
 
     @staticmethod
     def names(players: list[str]) -> list[str]:
