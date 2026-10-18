@@ -8,11 +8,9 @@ from pathlib import Path
 
 import yaml
 
-from .internals.engine import AI, Match
+from .internals.engine import AI
 from .internals.rules import Rules
-
-
-MAX_PLAYERS = 8
+from .internals.tournament import TABLE_SIZE, Tournament
 
 
 def load_ais(specs: list[str]) -> list[tuple[str, AI]]:
@@ -51,8 +49,8 @@ def load_ais(specs: list[str]) -> list[tuple[str, AI]]:
 
         ais.append((name, module.myAI))
 
-    if not 2 <= len(ais) <= MAX_PLAYERS:
-        raise SystemExit(f"poker: expected between 2 and {MAX_PLAYERS} AIs, but there were {len(ais)}")
+    if len(ais) < 2:
+        raise SystemExit(f"poker: expected at least 2 AIs, but there were {len(ais)}")
 
     return ais
 
@@ -103,50 +101,125 @@ def load_rules(args: argparse.Namespace) -> Rules:
     return rules
 
 
-def new_match(args: argparse.Namespace, ais: list[tuple[str, AI]], rules: Rules) -> Match:
+def new_tournament(args: argparse.Namespace, ais: list[tuple[str, AI]], rules: Rules) -> Tournament:
     if args.seed is not None:
         random.seed(args.seed)  # For AIs which use the random module
 
-    return Match(ais=ais, rules=rules, seed=args.seed)
+    return Tournament(ais=ais, rules=rules, seed=args.seed)
 
 
-def print_standings(match: Match):
-    print(f"Played {len(match.hands)} hands")
+def print_standings(tournament: Tournament):
+    tables = len(tournament.tables)
+    print(f"Played {tournament.hands_played()} hands" + (f" across {tables} tables" if tables > 1 else ""))
 
-    for place, seat in enumerate(match.standings(), start=1):
-        notes = [f"out on hand {seat.busted_on}"] if seat.busted_on else []
-        notes += [f"{seat.errors} bad actions"] if seat.errors else []
-        print(f"{place}. {seat.name:<20} {seat.stack:>8}" + (f"  ({', '.join(notes)})" if notes else ""))
+    for result in tournament.standings():
+        notes = []
+
+        if result.hand is not None:
+            notes.append(f"out on hand {result.hand}" + (f" at table {result.table}" if tables > 1 else ""))
+
+        if result.errors:
+            notes.append(f"{result.errors} bad actions")
+
+        print(f"{result.place:>2}. {result.name:<20} {result.stack:>8}" + (f"  ({', '.join(notes)})" if notes else ""))
+
+    if tournament.out:
+        print()
+        print("Went out")
+
+        for number, result in enumerate(tournament.out, start=1):
+            where = f"hand {result.hand}" + (f" at table {result.table}" if tables > 1 else "")
+            print(f"{number:>2}. {result.name:<20} {where:<22} finished {ordinal(result.place)}")
+
+
+def ordinal(number: int) -> str:
+    suffix = "th" if 10 <= number % 100 <= 20 else {1: "st", 2: "nd", 3: "rd"}.get(number % 10, "th")
+    return f"{number}{suffix}"
+
+
+def ending(tournament: Tournament) -> list[str]:
+    # The lines shown in a window once the tournament is over
+    standings = tournament.standings()
+    most = standings[0].stack
+    leaders = [result.name for result in standings if result.stack == most]
+    lines = [f"{leaders[0]} wins with {most:,} chips" if len(leaders) == 1 else f"{' and '.join(leaders)} tie on {most:,} chips"]
+
+    if len(tournament.tables) > 1:
+        lines += [f"{ordinal(result.place)}  {result.name}" for result in standings[1:3]]
+
+    return lines
 
 
 def run(args: argparse.Namespace):
     ais = load_ais(args.ais)
     rules = load_rules(args)
 
-    from .internals.render import CONTROLS, PokerRenderer  # Imported here so that poker test works without a screen
+    from .internals.render import CONTROLS  # Imported here so that poker test works without a screen
+    from .internals.window import Windows
 
     print(f"Controls: {CONTROLS}")
-    match = new_match(args, ais, rules)
-    renderer = PokerRenderer(players=[name for name, _ in ais], total_hands=rules.hands, fullscreen=args.fullscreen)
+    tournament = new_tournament(args, ais, rules)
+    title = "MATCH OVER" if len(tournament.tables) == 1 else "TOURNAMENT OVER"
+    windows = Windows(total_hands=rules.hands, fullscreen=args.fullscreen)
+    told: dict[int, str] = {}  # What each window has been told about how its table ended
 
-    # The main loop runs whilst the window is open, playing each hand just before it is shown
-    while renderer.is_window_open():
-        if renderer.should_restart():
-            match = new_match(args, ais, rules)
-            renderer.reset()
+    def tell_windows():
+        # Lets each window know once its table has nothing more to play, so it can say why after its last hand
+        over = tournament.is_over()
 
-        if renderer.needs_hand():
-            match.play_hand(len(match.hands) + 1)
-            renderer.push(match.hands[-1])
+        for table in tournament.tables:
+            if table.closed:
+                news = "closed"
+            elif over:
+                news = "over"
+            elif not table.can_deal():
+                news = "waiting"
+            else:
+                continue
 
-            if len(match.hands) >= rules.hands or match.is_over():
-                renderer.finish()
+            if told.get(table.number) == news:
+                continue
 
-        renderer.update()
+            told[table.number] = news
 
-    renderer.close()
-    print_standings(match)
+            if news == "closed":
+                moved = " and ".join(str(number) for number in table.moved_to)
+                windows.send(table.number, "finish", "TABLE CLOSED", [f"Everyone here moved to table{'s' if len(table.moved_to) > 1 else ''} {moved}"], False, 4.0)
+            elif news == "over":
+                windows.send(table.number, "finish", title, ending(tournament), True, None)
+            else:
+                windows.send(table.number, "finish", "TABLE FINISHED", [f"All {rules.hands} hands have been played here", "Waiting for the other tables"], True, None)
 
+    windows.start({table.number: [seat.name for seat in table.match.seats] for table in tournament.tables})
+
+    try:
+        # Each window asks for its next hand once it has shown the last one, and the hand is played just before it is sent.
+        # Moving players between tables happens straight after a hand, while every table is between hands.
+        while windows.open:
+            event = windows.next_event()
+
+            if event is None:
+                continue
+
+            number, message = event
+            table = tournament.tables[number - 1]
+
+            if message == "need" and table.can_deal() and not tournament.is_over():
+                windows.send(number, "hand", tournament.play_hand(table))
+                tell_windows()
+
+            elif message == "restart":
+                tournament = new_tournament(args, ais, rules)
+                told = {}
+                windows.start({table.number: [seat.name for seat in table.match.seats] for table in tournament.tables})
+
+            elif message == "closed" and not told.get(number) == "closed":
+                break  # Closing the window of a table which is still playing ends everything, as ESC always has
+
+    finally:
+        windows.close()
+
+    print_standings(tournament)
 
 def test(args: argparse.Namespace):
     ais = load_ais(args.ais)
@@ -164,22 +237,23 @@ def test(args: argparse.Namespace):
         if seed is not None:
             random.seed(seed)
 
-        match = Match(ais=rng.sample(ais, len(ais)), rules=rules, seed=seed)  # Seats are shuffled every match
-        match.play()
+        tournament = Tournament(ais=rng.sample(ais, len(ais)), rules=rules, seed=seed)  # Seats are shuffled every match
+        tournament.play()
 
-        standings = match.standings()
-        leaders = [seat for seat in standings if seat.stack == standings[0].stack]
+        standings = tournament.standings()
+        leaders = [result for result in standings if result.stack == standings[0].stack]
 
-        for place, seat in enumerate(standings, start=1):
-            chips[seat.name] += seat.stack
-            places[seat.name] += place
-            errors[seat.name] += seat.errors
+        for result in standings:
+            chips[result.name] += result.stack
+            places[result.name] += result.place
+            errors[result.name] += result.errors
 
-        for seat in leaders:
-            wins[seat.name] += 1 / len(leaders)
+        for result in leaders:
+            wins[result.name] += 1 / len(leaders)
 
     width = max(len(name) for name in chips)
-    print(f"{args.matches} matches of up to {rules.hands} hands")
+    tables = -(-len(ais) // TABLE_SIZE)
+    print(f"{args.matches} matches of up to {rules.hands} hands" + (f" a table, starting on {tables} tables" if tables > 1 else ""))
     print(f"{'AI':<{width}}  {'Won':>6}  {'Avg chips':>9}  {'Avg place':>9}  {'Bad actions':>11}")
 
     for name in sorted(chips, key=lambda name: (wins[name], chips[name]), reverse=True):  # Best win rate first, then most chips
@@ -195,12 +269,12 @@ def main(argv: list[str] | None = None):
     options.add_argument("--timeout", type=float, metavar="SECONDS", help="how long an AI gets for each action, or 0 for no limit, in place of what the rules say")
     options.add_argument("--seed", type=int, help="makes the cards the same every time")
 
-    ais_help = f"path to a python file with a myAI function, or NAME=PATH to choose the name it is shown with (2 to {MAX_PLAYERS} of them)"
+    ais_help = f"path to a python file with a myAI function, or NAME=PATH to choose the name it is shown with (at least 2, and more than {TABLE_SIZE} are split between tables)"
 
     parser = argparse.ArgumentParser(prog="poker", description="Play poker AIs against each other.")
     commands = parser.add_subparsers(dest="command", required=True)
 
-    run_parser = commands.add_parser("run", parents=[options], help="play a match and watch it")
+    run_parser = commands.add_parser("run", parents=[options], help="play a match and watch it, with a window for each table")
     run_parser.add_argument("ais", nargs="+", metavar="AI", help=ais_help)
     run_parser.add_argument("--fullscreen", action="store_true", help="start with the window filling the screen")
     run_parser.set_defaults(function=run)
