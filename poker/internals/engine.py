@@ -6,11 +6,11 @@ import threading
 from contextlib import contextmanager
 from typing import Callable
 
-from .action import Action
-from .card import Card, Rank, Suit
-from .game_state import GameState
+from ..action import Action
+from ..card import Card, Rank, Suit
+from ..game_state import GameState
 from .hand import describe, evaluate
-from .player import Blind, MyPlayer, Player
+from ..player import Blind, MyPlayer, Player
 from .rules import Rules
 
 
