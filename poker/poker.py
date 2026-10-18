@@ -8,8 +8,8 @@ from pathlib import Path
 
 import yaml
 
-from .engine import AI, Match
-from .rules import Rules
+from .internals.engine import AI, Match
+from .internals.rules import Rules
 
 
 MAX_PLAYERS = 8
@@ -123,7 +123,7 @@ def run(args: argparse.Namespace):
     ais = load_ais(args.ais)
     rules = load_rules(args)
 
-    from .render import CONTROLS, PokerRenderer  # Imported here so that poker test works without a screen
+    from .internals.render import CONTROLS, PokerRenderer  # Imported here so that poker test works without a screen
 
     print(f"Controls: {CONTROLS}")
     match = new_match(args, ais, rules)
