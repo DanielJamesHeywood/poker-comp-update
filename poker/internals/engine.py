@@ -79,9 +79,10 @@ class Match:
         self.orbits_completed = 0
         self.orbits_at_level = 0
         self.orbits_since_cut = 0
-        self.buttons_this_orbit: set[int] = set()
+        self.buttons_this_orbit: set[Seat] = set()
         self.timeout = self.rules.timeout
         self.ante = 0  # The ante for the current hand
+        self.notes: list[str] = []  # Anything to mention at the start of the next hand, such as a player joining the table
 
         self.rng = random.Random(seed)
         self.button = self.rng.randrange(len(self.seats))
@@ -102,13 +103,32 @@ class Match:
     def is_over(self) -> bool:
         return sum(seat.stack > 0 for seat in self.seats) < 2
 
+    def remove(self, seat: Seat):
+        # Takes a player away from the table between hands. The button stays with the player who had it, or moves back a seat if it was theirs.
+        index = self.seats.index(seat)
+        self.seats.pop(index)
+        self.buttons_this_orbit.discard(seat)
+
+        if index <= self.button:
+            self.button = (self.button - 1) % max(len(self.seats), 1)
+
+    def add(self, seat: Seat):
+        # Sits a player down between hands, just before the button. That makes them the big blind on the next hand, so they can't skip paying it.
+        seat.dealt = seat.folded = False
+        seat.blind = None
+        seat.hole_cards = []
+        seat.bet = seat.total_bet = 0
+        self.seats.insert(self.button, seat)
+        self.button += 1
+
     def standings(self) -> list[Seat]:
         # Most chips first. Players who are out are ordered by how long they lasted.
         return sorted(self.seats, key=lambda seat: (seat.stack, seat.busted_on or 0), reverse=True)
 
     def play_hand(self, number: int):
         rules = self.rules
-        happened = ""
+        happened = "".join(f", and {note}" for note in self.notes)
+        self.notes = []
 
         if (rules.cut_every_orbits and rules.cut_every_orbits <= self.orbits_since_cut) or (
             rules.cut_every_hands and rules.cut_every_hands <= self.hands_since_cut
@@ -163,6 +183,7 @@ class Match:
 
         hand = {
             "number": number,
+            "players": [seat.name for seat in self.seats],
             "button": self.button,
             "small_blind": self.seats.index(small),
             "big_blind": self.seats.index(big),
@@ -221,9 +242,9 @@ class Match:
                 self.frame("bust", f"{seat.name} is out", seat=seat, label="Out")
 
         assert self.pot == 0 and sum(seat.stack for seat in self.seats) == total_chips, "Chips were created or destroyed"
-        self.buttons_this_orbit.add(self.button)
+        self.buttons_this_orbit.add(self.seats[self.button])
 
-        if all(seat.stack == 0 or index in self.buttons_this_orbit for index, seat in enumerate(self.seats)):
+        if all(seat.stack == 0 or seat in self.buttons_this_orbit for seat in self.seats):
             self.orbits_completed += 1
             self.orbits_at_level += 1
             self.orbits_since_cut += 1
