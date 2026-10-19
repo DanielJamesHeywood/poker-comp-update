@@ -82,7 +82,7 @@ Please note, command line tools will not work from a github codespace, instead t
 
 ## 🎯 Running the Game
 
-Installing the project gives you a `poker` command, which plays AIs against each other. An AI is any python file with a `myAI` function, and there are a few simple ones to play against in the `examples` folder. At least 2 AIs can play. More than 8 are split between tables like a tournament, and `poker run` opens a window for each table. As players go out, the smallest table is broken up and its players are moved to the others, and the tables are kept within one player of each other. The tables play hand for hand, so no table gets ahead of the others, and the game carries on until one player has every chip. To stop early instead, `--hands` sets how many hands each table plays, and then whoever has the most chips wins. When it ends, poker prints where everyone finished and the hand (and table) on which each player went out.
+Installing the project gives you a `poker` command, which plays AIs against each other. An AI is any python file with a `myAI` function, and there are a few simple ones to play against in the `examples` folder. At least 2 AIs can play. More than 8 are split between tables, and `poker run` opens a window for each table. The game is played by the [Tournament Rules](#-tournament-rules) below. When it ends, poker prints where everyone finished, the hand (and table) on which each player went out, and everyone's score.
 
 The bots in the `examples` folder each follow one simple rule. A rule never changes as the flop, turn and river are dealt:
 
@@ -155,6 +155,76 @@ The rules of a match, such as how many chips everyone starts with and how quickl
 
 ---
 
+## 🃏 Tournament Rules
+
+These are the rules every game is played by, including the weekly competition. All of the numbers are set in `poker/internals/rules.yaml`.
+
+### The Game
+
+- The game is no-limit Texas hold'em.
+- Everyone starts with **200 chips**, which is 100 big blinds.
+- A player who has no chips left at the end of a hand is out.
+- The game carries on until one player has every chip.
+
+### Tables
+
+- A table seats at most 8 players. With more than 8, players are dealt out in turn, in the order they are given, between as few tables as they fit at, so the tables are as even as they can be.
+- The tables play **hand for hand**: no table deals its next hand until every other table has finished the one before. So hand 20 at one table is played alongside hand 20 at every other.
+- Players are only moved between tables once every table has finished a hand.
+  - **Breaking a table:** when everyone left would fit at fewer tables, the table with the fewest players is broken up, and its players are sent one at a time to whichever tables have the fewest players.
+  - **Balancing:** when one table has two or more players more than another, the player who would be the next big blind at the bigger table moves to the smaller one.
+- A player who moves sits down as the **next big blind** at their new table, so moving never lets anyone skip the blinds.
+
+### Each Hand
+
+- The dealer button starts at a random seat and moves on to the next player every hand. The two players after the button pay the small and big blinds. When only two players are left, the button pays the small blind.
+- From the fourth level, everyone also pays an **ante** into the pot before the hand. An ante doesn't count towards calling a bet.
+- **Raising:** `Action.raise_by(amount)` calls the current bet and then raises it by `amount` more chips. There is no minimum raise. A raise of more than you have puts you all in. If you can't afford more than a call, or nobody left could call a raise, a raise counts as a call.
+- **Calling** a bet bigger than your stack puts you all in.
+- Any part of a bet which nobody called goes back to the player who made it. Side pots are made for players who are all in, and a split pot gives any odd chips to the first players after the button.
+
+### Blinds and Antes
+
+The blinds go up a level every **15 hands**, and every table is always on the same level. The ante is about an eighth of the big blind.
+
+| Level | Hands | Blinds | Ante |
+|---|---|---|---|
+| 1 | 1–15 | 1/2 | – |
+| 2 | 16–30 | 2/4 | – |
+| 3 | 31–45 | 3/6 | – |
+| 4 | 46–60 | 5/10 | 1 |
+| 5 | 61–75 | 10/20 | 3 |
+| 6 | 76–90 | 20/40 | 5 |
+| 7 | 91–105 | 30/60 | 8 |
+| 8 | 106–120 | 50/100 | 13 |
+| 9 | 121–135 | 100/200 | 25 |
+| 10 | 136–150 | 200/400 | 50 |
+
+After that, the pattern carries on ten times bigger.
+
+### Time Limits and Invalid Moves
+
+- Your AI has **1 second** for each action.
+- If it raises an exception, takes too long, doesn't return an `Action`, or checks when there is a bet to call, it checks if it can and folds if it can't. That is the same as `defaultAI` and `examples/default.py`, and it counts as a bad action.
+
+### Finishing Places
+
+- The last player left wins.
+- Everyone else finishes in the order they went out, the last to go out finishing highest.
+- Players who go out on the same hand, at any table, are placed by how many chips they had at the start of that hand: more chips finishes higher.
+
+### Scoring
+
+Your score is your **peak chips**, which is the most chips you ever had at the end of a hand, plus **bonus chips** for where you finished: 10 for last, 20 for second to last, and so on up to the winner.
+
+- With 28 players, the winner ends with all 5,600 chips and scores 5,600 + 280 = **5,880**.
+- Someone who never got past their starting stack of 200 scores 200 plus their bonus, so 210 if they came last.
+- A tournament with more players has more chips in play, so it gives bigger scores.
+
+Most of the score is for building a stack. A bot which folds every hand can outlast bots which gamble with each other, but it never wins a pot, so its peak chips stay at about its starting stack and it only gets the bonus for where it finished. The best way to score is to win chips, as in a real game of poker.
+
+---
+
 ## 🧠 Writing Your AI
 
 ### The Basics
@@ -169,25 +239,12 @@ def myAI(state: GameState) -> Action:
 Your AI function should use the current state of the game `state` and output an `Action` of type of `CHECK`, `CALL`, `RAISE` or `FOLD`·
 These can be constructed using `Action.check()`, `Action.call()`, `Action.raise_by(amount: int)` or `Action.fold()`.
 
-### The Rules
+### What Your AI Sees
 
-The game is no-limit Texas hold'em. Everyone starts a match with the same number of chips, and a player who runs out is out of the match.
-
-The structure is a typical tournament's. Everyone starts with 200 chips, which is 100 big blinds. The blinds go up a level every 15 hands: 1/2, 2/4, 3/6, 5/10, 10/20, 20/40, 30/60, 50/100 and so on. From the fourth level, everyone also pays an ante of about an eighth of the big blind every hand. With more than one table, every table is on the same level.
-
-The game carries on until one player has every chip.
-
-All of these numbers are set in `poker/internals/rules.yaml`.
-
-Each player's score is their peak chips, which is the most chips they ever had at the end of a hand, plus bonus chips for where they finished: 10 for last, 20 for second to last, and so on. With 28 players, the winner ends with all 5,600 chips and scores 5,600 + 280 = 5,880. Someone who never got past their starting stack of 200 scores 200 plus their bonus, so 210 if they came last. A tournament with more players has more chips in play, so it gives bigger scores.
-
-Most of the score is for building a stack. A bot which folds every hand can outlast bots which gamble with each other, but it never wins a pot, so its peak chips stay at about its starting stack and it only gets the bonus for where it finished. The best way to score is to win chips, as in a real game of poker.
+The game is played by the [Tournament Rules](#-tournament-rules) above. A few things about the `state` your AI is given:
 
 - `chips_bet` is how many chips a player has put in during the current betting round, so the amount you need to call is the biggest `chips_bet` at the table minus your own. `chips_in_pot` is everything bet in the hand so far.
 - `small_blind`, `big_blind` and `ante` are the sizes for the current hand, so your AI can size its bets as the blinds go up.
-- `Action.raise_by(amount)` calls the current bet and then raises it by `amount` more. There is no minimum raise, and if it is more than you have then you go all in.
-- `Action.call()` when you can't afford the bet puts you all in.
-- If your AI raises an exception, takes too long, doesn't return an `Action` or checks when there is a bet to call, then it checks if it can and folds if it can't, the same as `defaultAI`.
 
 ### Some Inspiration
 
