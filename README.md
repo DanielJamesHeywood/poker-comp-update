@@ -36,7 +36,7 @@ Once the competition is over, we'd love to accept any and all creations as open 
 
 Also, this is a also new project with room for improvement. If you have ideas or suggestions:
 - Message us directly
-- Send a pull request with your changes to the main competition repository, never to your own submission
+- Send a pull request with your changes to the main competition repository, not to your own submission
 
 Open source contributions are great practice and go an long way on a CV!
 
