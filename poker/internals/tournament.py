@@ -10,6 +10,20 @@ from .rules import Rules
 TABLE_SIZE = 8  # The most players who can sit at one table
 
 
+KNOCKOUT_POINTS = 5
+
+
+def points(place: int, entrants: int, knockouts: float = 0) -> int:
+    # League points, for keeping a table of results from week to week: 10, a point for every player finished above,
+    # 10 × entrants ÷ place² for finishing near the top, and KNOCKOUT_POINTS for every player knocked out.
+    #
+    # Everyone gets at least 10, and every place up is worth more than the one below it. The top places are worth by far the
+    # most, and so are knockouts, because a bot which folds every hand can outlast bots which gamble with each other, but it can
+    # never win and never knock anyone out. So the most points go to bots which play to win, as in a real tournament.
+    # A week with more players gives more points, as it is harder to finish high in.
+    return round(10 + (entrants - place) + 10 * entrants / place ** 2 + KNOCKOUT_POINTS * knockouts)
+
+
 @dataclass
 class Result:
     # Where a player finished. Players who went out say on which hand, and at which table.
@@ -19,6 +33,8 @@ class Result:
     errors: int
     table: int | None = None
     hand: int | None = None
+    points: int = 0
+    knockouts: float = 0
 
 
 @dataclass
@@ -160,11 +176,12 @@ class Tournament:
         # out on the same hand, at any table, whoever started that hand with more chips finishes higher, as is usual in a tournament.
         still_in = sorted(self.players(), key=lambda seat: seat.stack, reverse=True)
         gone = sorted(self.exits, key=lambda exit: (exit.hand, exit.started_with), reverse=True)
-        results = [Result(place=0, name=seat.name, stack=seat.stack, errors=seat.errors) for seat in still_in]
-        results += [Result(place=0, name=exit.seat.name, stack=0, errors=exit.seat.errors, table=exit.table, hand=exit.hand) for exit in gone]
+        results = [Result(place=0, name=seat.name, stack=seat.stack, errors=seat.errors, knockouts=seat.knockouts) for seat in still_in]
+        results += [Result(place=0, name=exit.seat.name, stack=0, errors=exit.seat.errors, table=exit.table, hand=exit.hand, knockouts=exit.seat.knockouts) for exit in gone]
 
         for place, result in enumerate(results, start=1):
             result.place = place
+            result.points = points(place, self.entrants, result.knockouts)
 
         return results
 

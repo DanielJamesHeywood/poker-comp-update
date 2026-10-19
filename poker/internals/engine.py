@@ -60,6 +60,7 @@ class Seat:
         self.bet = 0  # Chips put in during the current betting round
         self.total_bet = 0  # Chips put in during the current hand
         self.errors = 0
+        self.knockouts = 0.0  # Players this player has put out. A knockout shared between players who split the pot is shared between them.
         self.busted_on: int | None = None
 
 
@@ -104,6 +105,12 @@ class Match:
 
     def is_over(self) -> bool:
         return sum(seat.stack > 0 for seat in self.seats) < 2
+
+    def current_ante(self) -> int:
+        # The ante in the rules is for the starting blinds, and it goes up with the blinds. It starts from a blind level, or from an orbit.
+        rules = self.rules
+        started = (rules.ante_from_level and self.blind_level + 1 >= rules.ante_from_level) or (rules.ante_from_orbit and self.orbits_completed >= rules.ante_from_orbit - 1) or not (rules.ante_from_level or rules.ante_from_orbit)
+        return int(rules.ante * self.big_blind / rules.big_blind + 0.5) if rules.ante and started else 0
 
     def blinds_due(self) -> bool:
         # Whether the rules say the blinds go up before the next hand
@@ -181,7 +188,7 @@ class Match:
 
         self.hands_at_level += 1
         self.hands_since_cut += 1
-        ante = self.ante = rules.ante if self.orbits_completed >= rules.ante_from_orbit - 1 else 0
+        ante = self.ante = self.current_ante()
         total_chips = sum(seat.stack for seat in self.seats)
 
         for seat in self.seats:
@@ -269,6 +276,12 @@ class Match:
                 seat.dealt = False
                 seat.busted_on = number
                 self.frame("bust", f"{seat.name} is out", seat=seat, label="Out")
+
+                # Whoever won the last pot they could have won put them out
+                takers = next((winners for winners, eligible in reversed(self.pot_results) if seat in eligible), [])
+
+                for taker in takers:
+                    taker.knockouts += 1 / len(takers)
 
         assert self.pot == 0 and sum(seat.stack for seat in self.seats) == total_chips, "Chips were created or destroyed"
         self.buttons_this_orbit.add(self.seats[self.button])
@@ -419,7 +432,10 @@ class Match:
         for seat in dealt:
             seat.bet = 0
 
+        self.pot_results: list[tuple[list[Seat], list[Seat]]] = []  # Who won each pot, and who could have won it
+
         if len(live) == 1:
+            self.pot_results.append((live, dealt))
             self.award(live, self.pot, f"{live[0].name} wins {self.pot}")
             return
 
@@ -438,6 +454,7 @@ class Match:
             names = " and ".join(seat.name for seat in winners)
             verb = "wins" if len(winners) == 1 else "split"
             pot_name = "" if len(pots) == 1 else "the main pot of " if number == 0 else "the side pot of "
+            self.pot_results.append((winners, eligible))
             self.award(winners, amount, f"{names} {verb} {pot_name}{amount} ({describe(best).lower()})")
 
     def award(self, winners: list[Seat], amount: int, text: str):

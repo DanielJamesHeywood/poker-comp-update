@@ -33,6 +33,7 @@ class Rules:
 
         self.ante: int = rules["ante"]["chips"]
         self.ante_from_orbit: int = rules["ante"]["from_orbit"]
+        self.ante_from_level: int = rules["ante"]["from_level"]
 
         self.check(endless=True)  # Whether a match can end isn't checked yet, as the command line may still set a limit on hands
 
@@ -89,4 +90,5 @@ class Rules:
             # Players who only check and fold could pass the same blinds back and forth forever
             raise ValueError("Expected the blinds to go up or the chips to be cut when hands is 0, as otherwise a match might never end")
         whole("chips in ante", self.ante, 0)
-        whole("from_orbit in ante", self.ante_from_orbit, 1)
+        whole("from_orbit in ante", self.ante_from_orbit, 0)
+        whole("from_level in ante", self.ante_from_level, 0)
