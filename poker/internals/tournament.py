@@ -10,6 +10,18 @@ from .rules import Rules
 TABLE_SIZE = 8  # The most players who can sit at one table
 
 
+BONUS_CHIPS = 10  # Added to a player's score for last place, twice for the place above, and so on up to the winner
+
+
+def score(peak: int, place: int, entrants: int) -> int:
+    # A player's score, for keeping a table of results from week to week: their peak chips, the most chips they had at the end
+    # of any hand, and a bonus for where they finished: BONUS_CHIPS for last, twice that for the place above, and so on.
+    #
+    # Most of it is for building a stack. A bot which folds every hand can outlast bots which gamble with each other, but it never
+    # wins a pot, so its peak chips stay at about its starting stack and it only gets the bonus for where it finished.
+    return peak + BONUS_CHIPS * (entrants + 1 - place)
+
+
 @dataclass
 class Result:
     # Where a player finished. Players who went out say on which hand, and at which table.
@@ -19,6 +31,8 @@ class Result:
     errors: int
     table: int | None = None
     hand: int | None = None
+    peak: int = 0  # The most chips they had at the end of any hand
+    score: int = 0
 
 
 @dataclass
@@ -45,7 +59,8 @@ class Table:
 
     def in_play(self) -> bool:
         # Still open, with hands left to play. It may be down to one player, waiting for players to be moved to it or from it.
-        return not self.closed and bool(self.players()) and self.hands_played() < self.match.rules.hands
+        limit = self.match.rules.hands  # 0 means no limit
+        return not self.closed and bool(self.players()) and (not limit or self.hands_played() < limit)
 
     def can_deal(self) -> bool:
         return self.in_play() and not self.match.is_over()
@@ -73,6 +88,11 @@ class Tournament:
             # so a single table plays exactly the same hands as a Match would.
             table_seed = seed if seed is None or index == 0 else f"{seed}/{index}"
             self.tables.append(Table(index + 1, Match(ais=ais[index::count], rules=self.rules, seed=table_seed)))
+
+        for table in self.tables:
+            # With more than one table, every table shares the same blinds. They all go up together, between hands, as soon as
+            # the rules say they should at any table. A single table goes up by itself, exactly as a Match does.
+            table.match.shared_blinds = count > 1
 
         self.entrants = len(ais)
         self.exits: list[Exit] = []
@@ -103,8 +123,26 @@ class Tournament:
 
         if len({other.hands_played() for other in self.tables if other.in_play()}) <= 1:
             self.rebalance()
+            self.raise_blinds()
 
         return hand
+
+    def raise_blinds(self):
+        # Between rounds, every table goes up a level together if any table is due to. Tables with hands left are the ones that count.
+        tables = [table for table in self.tables if table.in_play() and table.match.shared_blinds]
+
+        if not any(table.match.blinds_due() for table in tables):
+            return
+
+        level = max(table.match.blind_level for table in tables) + 1
+
+        for table in tables:
+            match = table.match
+
+            while match.blind_level < level:
+                match.raise_blinds()
+
+            match.notes.append(f"the blinds go up to {match.small_blind}/{match.big_blind} at every table")
 
     def is_over(self) -> bool:
         return len(self.players()) < 2 or not any(table.can_deal() for table in self.tables)
@@ -136,11 +174,12 @@ class Tournament:
         # out on the same hand, at any table, whoever started that hand with more chips finishes higher, as is usual in a tournament.
         still_in = sorted(self.players(), key=lambda seat: seat.stack, reverse=True)
         gone = sorted(self.exits, key=lambda exit: (exit.hand, exit.started_with), reverse=True)
-        results = [Result(place=0, name=seat.name, stack=seat.stack, errors=seat.errors) for seat in still_in]
-        results += [Result(place=0, name=exit.seat.name, stack=0, errors=exit.seat.errors, table=exit.table, hand=exit.hand) for exit in gone]
+        results = [Result(place=0, name=seat.name, stack=seat.stack, errors=seat.errors, peak=seat.peak) for seat in still_in]
+        results += [Result(place=0, name=exit.seat.name, stack=0, errors=exit.seat.errors, table=exit.table, hand=exit.hand, peak=exit.seat.peak) for exit in gone]
 
         for place, result in enumerate(results, start=1):
             result.place = place
+            result.score = score(result.peak, place, self.entrants)
 
         return results
 

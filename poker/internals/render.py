@@ -557,7 +557,7 @@ class PokerRenderer:
             return
 
         y += 14
-        rl.draw_text(f"HAND {hand['number']} OF {self.total_hands}", left, y, 10, self.MUTED)
+        rl.draw_text(f"HAND {hand['number']}" + (f" OF {self.total_hands}" if self.total_hands else ""), left, y, 10, self.MUTED)
         self.draw_text_right(f"BLINDS {hand['blinds'][0]}/{hand['blinds'][1]}" + (f"   ANTE {hand['ante']}" if hand["ante"] else ""), right, y, 10, self.MUTED)
         y += 18
 

@@ -1,10 +1,20 @@
 from poker.action import Action
 from poker.game_state import GameState
 
+
 def myAI(state: GameState) -> Action:
+    # Puts every chip in when its two cards are a pair, and otherwise checks or folds
     card, other_card = state.my_player.hole_cards
-    return Action.raise_by(state.my_player.chips_in_stack) if card.rank == other_card.rank else defaultAI(state)
+    to_call = max(player.chips_bet for player in state.players) - state.my_player.chips_bet
+    left_after_calling = state.my_player.chips_in_stack - to_call
 
+    if card.rank == other_card.rank:
+        if left_after_calling <= 0:
+            return Action.call()  # Calling already puts us all in
 
-def defaultAI(state: GameState) -> Action: # This ai runs if myAI raises an exception, returns an invalid action or takes too long
-    return Action.check() if not state.my_player.chips_in_stack or state.my_player.chips_bet == max(player.chips_bet for player in state.players) else Action.fold()
+        return Action.raise_by(left_after_calling)
+
+    if to_call == 0:
+        return Action.check()
+
+    return Action.fold()

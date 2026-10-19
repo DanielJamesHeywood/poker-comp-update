@@ -61,6 +61,7 @@ class Seat:
         self.total_bet = 0  # Chips put in during the current hand
         self.errors = 0
         self.busted_on: int | None = None
+        self.peak = stack  # The most chips this player has had at the end of any hand, which is their score
 
 
 class Match:
@@ -83,6 +84,7 @@ class Match:
         self.timeout = self.rules.timeout
         self.ante = 0  # The ante for the current hand
         self.notes: list[str] = []  # Anything to mention at the start of the next hand, such as a player joining the table
+        self.shared_blinds = False  # Whether something else, such as a tournament of several tables, decides when the blinds go up
 
         self.rng = random.Random(seed)
         self.button = self.rng.randrange(len(self.seats))
@@ -94,14 +96,34 @@ class Match:
         self.current_bet = 0
 
     def play(self):
-        for number in range(1, self.rules.hands + 1):
-            if self.is_over():
-                break
+        # Plays until one player has every chip, or until the most hands the rules allow if they set a limit
+        number = 1
 
+        while not self.is_over() and (not self.rules.hands or number <= self.rules.hands):
             self.play_hand(number)
+            number += 1
 
     def is_over(self) -> bool:
         return sum(seat.stack > 0 for seat in self.seats) < 2
+
+    def current_ante(self) -> int:
+        # The ante in the rules is for the starting blinds, and it goes up with the blinds. It starts from a blind level, or from an orbit.
+        rules = self.rules
+        started = (rules.ante_from_level and self.blind_level + 1 >= rules.ante_from_level) or (rules.ante_from_orbit and self.orbits_completed >= rules.ante_from_orbit - 1) or not (rules.ante_from_level or rules.ante_from_orbit)
+        return int(rules.ante * self.big_blind / rules.big_blind + 0.5) if rules.ante and started else 0
+
+    def blinds_due(self) -> bool:
+        # Whether the rules say the blinds go up before the next hand
+        rules = self.rules
+        return bool((rules.blinds_up_every_orbits and rules.blinds_up_every_orbits <= self.orbits_at_level) or (rules.blinds_up_every_hands and rules.blinds_up_every_hands <= self.hands_at_level))
+
+    def raise_blinds(self):
+        rules = self.rules
+        self.blind_level += 1
+        self.hands_at_level = 0
+        self.orbits_at_level = 0
+        scale = rules.blind_levels[self.blind_level % len(rules.blind_levels)] / rules.blind_levels[0] * 10 ** (self.blind_level // len(rules.blind_levels))
+        self.small_blind, self.big_blind = (int(blind * scale + 0.5) for blind in (rules.small_blind, rules.big_blind))
 
     def remove(self, seat: Seat):
         # Takes a player away from the table between hands. The button stays with the player who had it, or moves back a seat if it was theirs.
@@ -160,19 +182,13 @@ class Match:
             for seat in self.seats:
                 seat.stack -= int(seat.stack * rules.cut_share)  # Rounded down, so that nobody is put out by it
 
-        if (rules.blinds_up_every_orbits and rules.blinds_up_every_orbits <= self.orbits_at_level) or (
-            rules.blinds_up_every_hands and rules.blinds_up_every_hands <= self.hands_at_level
-        ):
-            self.blind_level += 1
-            self.hands_at_level = 0
-            self.orbits_at_level = 0
-            scale = rules.blind_levels[self.blind_level % len(rules.blind_levels)] / rules.blind_levels[0] * 10 ** (self.blind_level // len(rules.blind_levels))
-            self.small_blind, self.big_blind = (int(blind * scale + 0.5) for blind in (rules.small_blind, rules.big_blind))
+        if not self.shared_blinds and self.blinds_due():
+            self.raise_blinds()
             happened += f", and the blinds go up to {self.small_blind}/{self.big_blind}"
 
         self.hands_at_level += 1
         self.hands_since_cut += 1
-        ante = self.ante = rules.ante if self.orbits_completed >= rules.ante_from_orbit - 1 else 0
+        ante = self.ante = self.current_ante()
         total_chips = sum(seat.stack for seat in self.seats)
 
         for seat in self.seats:
@@ -253,6 +269,9 @@ class Match:
         self.settle(dealt, hand)
 
         hand["board"] = [card_code(card) for card in self.board]
+
+        for seat in dealt:
+            seat.peak = max(seat.peak, seat.stack)
         self.hands.append(hand)
 
         for seat in dealt:

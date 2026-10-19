@@ -82,7 +82,7 @@ Please note, command line tools will not work from a github codespace, instead t
 
 ## 🎯 Running the Game
 
-Installing the project gives you a `poker` command, which plays AIs against each other. An AI is any python file with a `myAI` function, and there are a few simple ones to play against in the `examples` folder. At least 2 AIs can play. More than 8 are split between tables like a tournament, and `poker run` opens a window for each table. As players go out, the smallest table is broken up and its players are moved to the others, and the tables are kept within one player of each other. The tables play hand for hand, so no table gets ahead of the others, and `--hands` is how many hands each table plays. When it ends, poker prints where everyone finished and the hand (and table) on which each player went out.
+Installing the project gives you a `poker` command, which plays AIs against each other. An AI is any python file with a `myAI` function, and there are a few simple ones to play against in the `examples` folder. At least 2 AIs can play. More than 8 are split between tables like a tournament, and `poker run` opens a window for each table. As players go out, the smallest table is broken up and its players are moved to the others, and the tables are kept within one player of each other. The tables play hand for hand, so no table gets ahead of the others, and the game carries on until one player has every chip. To stop early instead, `--hands` sets how many hands each table plays, and then whoever has the most chips wins. When it ends, poker prints where everyone finished and the hand (and table) on which each player went out.
 
 #### 👀 Watch a match
 ```bash
@@ -103,15 +103,15 @@ This opens a window and plays a match in it, showing everyone's cards, the bets 
 
 #### ⚡ Run headless tests
 ```bash
-poker test 100 myAI.py examples/just_call.py examples/just_raise_by_one.py examples/default.py
+poker test 100 myAI.py examples/just_call.py examples/just_raise_small_blind.py examples/default.py
 ```
 
 This plays 100 matches without showing them, and prints how each AI did.
 
 #### 🎲 Deterministic testing
 ```bash
-poker run myAI.py examples/just_raise_by_one.py --seed 123
-poker test 100 myAI.py examples/just_raise_by_one.py --seed 69
+poker run myAI.py examples/just_raise_small_blind.py --seed 123
+poker test 100 myAI.py examples/just_raise_small_blind.py --seed 69
 ```
 
 #### 🆚 Comparing versions of your AI
@@ -155,9 +155,15 @@ These can be constructed using `Action.check()`, `Action.call()`, `Action.raise_
 
 The game is no-limit Texas hold'em. Everyone starts a match with the same number of chips, and a player who runs out is out of the match.
 
-As in a tournament, the blinds go up as the match goes on. They go up a level every 3 orbits, which is 3 hands for each player still in, and each level is between 25% and 50% more than the last: 10/20, 15/30, 20/40, 30/60, 40/80, 50/100, 75/150, 100/200 and so on.
+The structure is a typical tournament's. Everyone starts with 200 chips, which is 100 big blinds. The blinds go up a level every 15 hands: 1/2, 2/4, 3/6, 5/10, 10/20, 20/40, 30/60, 50/100 and so on. From the fourth level, everyone also pays an ante of about an eighth of the big blind every hand. With more than one table, every table is on the same level.
 
-All of these numbers are set in `poker/internals/rules.yaml`, along with rules which are turned off to begin with, like antes.
+The game carries on until one player has every chip.
+
+All of these numbers are set in `poker/internals/rules.yaml`.
+
+Each player's score is their peak chips, which is the most chips they ever had at the end of a hand, plus bonus chips for where they finished: 10 for last, 20 for second to last, and so on. With 28 players, the winner ends with all 5,600 chips and scores 5,600 + 280 = 5,880. Someone who never got past their starting stack of 200 scores 200 plus their bonus, so 210 if they came last. A tournament with more players has more chips in play, so it gives bigger scores.
+
+Most of the score is for building a stack. A bot which folds every hand can outlast bots which gamble with each other, but it never wins a pot, so its peak chips stay at about its starting stack and it only gets the bonus for where it finished. The best way to score is to win chips, as in a real game of poker.
 
 - `chips_bet` is how many chips a player has put in during the current betting round, so the amount you need to call is the biggest `chips_bet` at the table minus your own. `chips_in_pot` is everything bet in the hand so far.
 - `small_blind`, `big_blind` and `ante` are the sizes for the current hand, so your AI can size its bets as the blinds go up.
