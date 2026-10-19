@@ -289,12 +289,13 @@ Each week:
 
 1. **Download every team's bot.** In the website folder, this picks each team's latest submission which passed the tests:
    ```bash
-   PROJECT_ID=poker npx astro db execute db/download-snapshots.ts --remote
+   PROJECT_ID=poker PICK=latest npx astro db execute db/download-snapshots.ts --remote
    ```
 2. **Move the bots out of the website folder,** to keep them away from its credentials:
    ```bash
    mv snapshots/poker ~/poker-round-1
    ```
+   If `~/poker-round-1` already exists, e.g. from downloading again, move or delete it first. Otherwise `mv` puts the new bots inside it, as `~/poker-round-1/poker`, and the tournament still plays the old ones.
 3. **Check the bots and build the sandbox.** In the WarwickAI/competitions folder, with Docker running, this runs every team's tests again in a locked-down container of its own, and builds the `wai-results` image the tournament uses:
    ```bash
    STUDENT_FILES="myAI.py" ./results/run.sh ~/poker-round-1 ../poker-comp-update
