@@ -84,9 +84,27 @@ Please note, command line tools will not work from a github codespace, instead t
 
 Installing the project gives you a `poker` command, which plays AIs against each other. An AI is any python file with a `myAI` function, and there are a few simple ones to play against in the `examples` folder. At least 2 AIs can play. More than 8 are split between tables like a tournament, and `poker run` opens a window for each table. As players go out, the smallest table is broken up and its players are moved to the others, and the tables are kept within one player of each other. The tables play hand for hand, so no table gets ahead of the others, and the game carries on until one player has every chip. To stop early instead, `--hands` sets how many hands each table plays, and then whoever has the most chips wins. When it ends, poker prints where everyone finished and the hand (and table) on which each player went out.
 
+The bots in the `examples` folder each follow one simple rule. A rule never changes as the flop, turn and river are dealt:
+
+| Bot | Rule |
+|---|---|
+| `default.py` | Checks when there is nothing to call, and folds to any bet. This is also what is played for any bot which makes an invalid move |
+| `call.py` | Calls every bet |
+| `call_preflop.py` | Calls before the flop, then checks or folds |
+| `call_when_big_blind.py` | Calls any bet when it is the big blind, and otherwise checks or folds |
+| `call_when_blind.py` | Calls any bet when it is the small blind or the big blind, and otherwise checks or folds |
+| `raise_by_small_blind.py` | Raises by the small blind every time |
+| `raise_by_big_blind_unless_raised.py` | Raises by the big blind whenever nobody has bet more than the big blind, and folds to anything bigger |
+| `raise_by_half_of_stack.py` | Raises by half of the chips it has left after calling, every time |
+| `raise_by_pot.py` | Raises by the size of the pot every time |
+| `raise_by_pot_when_biggest_stack.py` | Raises by the size of the pot when it has the most chips at the table, and otherwise checks or folds |
+| `go_all_in.py` | Goes all in every time |
+| `go_all_in_on_pair.py` | Goes all in when its two cards are a pair, and otherwise checks or folds |
+| `go_all_in_on_ace.py` | Goes all in when it holds an ace, and otherwise checks or folds |
+
 #### 👀 Watch a match
 ```bash
-poker run myAI.py examples/just_call.py examples/default.py
+poker run myAI.py examples/call.py examples/default.py
 ```
 
 This opens a window and plays a match in it, showing everyone's cards, the bets and what each AI does. The window can be resized, and adding `--fullscreen` starts it filling the screen.
@@ -103,15 +121,15 @@ This opens a window and plays a match in it, showing everyone's cards, the bets 
 
 #### ⚡ Run headless tests
 ```bash
-poker test 100 myAI.py examples/just_call.py examples/just_raise_small_blind.py examples/default.py
+poker test 100 myAI.py examples/call.py examples/raise_by_small_blind.py examples/default.py
 ```
 
 This plays 100 matches without showing them, and prints how each AI did.
 
 #### 🎲 Deterministic testing
 ```bash
-poker run myAI.py examples/just_raise_small_blind.py --seed 123
-poker test 100 myAI.py examples/just_raise_small_blind.py --seed 69
+poker run myAI.py examples/raise_by_small_blind.py --seed 123
+poker test 100 myAI.py examples/raise_by_small_blind.py --seed 69
 ```
 
 #### 🆚 Comparing versions of your AI
