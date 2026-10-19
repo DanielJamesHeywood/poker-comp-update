@@ -8,10 +8,10 @@ from pathlib import Path
 
 import yaml
 
-from .internals.engine import AI
-from .internals.rules import Rules
-from .internals.score import NUM_MATCHES, NUM_STATES, score as score_ai
-from .internals.tournament import TABLE_SIZE, Tournament
+from .engine import AI
+from .rules import Rules
+from .score import NUM_MATCHES, NUM_STATES, score as score_ai
+from .tournament import TABLE_SIZE, Tournament
 
 
 def load_ais(specs: list[str], least: int = 2) -> list[tuple[str, AI]]:
@@ -87,7 +87,7 @@ def whole(text: str) -> int:
 
 
 def load_rules(args: argparse.Namespace) -> Rules:
-    # The rules come from poker/rules.yaml or the file given with --rules, and then the command line can change a few of them
+    # The rules come from poker/internals/rules.yaml or the file given with --rules, and then the command line can change a few of them
     try:
         rules = Rules(args.rules)
 
@@ -168,8 +168,8 @@ def run(args: argparse.Namespace):
     ais = load_ais(args.ais)
     rules = load_rules(args)
 
-    from .internals.render import CONTROLS  # Imported here so that poker test works without a screen
-    from .internals.window import Windows
+    from .render import CONTROLS  # Imported here so that poker test works without a screen
+    from .window import Windows
 
     print(f"Controls: {CONTROLS}")
     tournament = new_tournament(args, ais, rules)
@@ -316,7 +316,7 @@ def score(args: argparse.Namespace):
 
 def main(argv: list[str] | None = None):
     options = argparse.ArgumentParser(add_help=False)
-    options.add_argument("--rules", metavar="FILE", help="a yaml file of rules to play by, like poker/rules.yaml. It only needs the rules which are different")
+    options.add_argument("--rules", metavar="FILE", help="a yaml file of rules to play by, like poker/internals/rules.yaml. It only needs the rules which are different")
     options.add_argument("--hands", type=whole, help="most hands each table plays, or 0 to play until one AI has every chip, in place of what the rules say")
     options.add_argument("--stack", type=positive, help="chips each AI starts with, in place of what the rules say")
     options.add_argument("--blinds", type=parse_blinds, metavar="SMALL/BIG", help="the blinds at the start, like 10/20, in place of what the rules say")
