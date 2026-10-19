@@ -10,15 +10,6 @@ from .rules import Rules
 TABLE_SIZE = 8  # The most players who can sit at one table
 
 
-def points(peak: int) -> int:
-    # League points, for keeping a table of results from week to week: the most chips a player ever had. The winner ends with
-    # every chip, so a tournament with more players gives its winner more points.
-    #
-    # Folding can't earn points, as a player only gets more chips by winning pots, so a bot which folds every hand stays at
-    # about its starting stack. Outlasting other players isn't enough on its own, either: the points are for building a stack.
-    return peak
-
-
 @dataclass
 class Result:
     # Where a player finished. Players who went out say on which hand, and at which table.
@@ -28,8 +19,7 @@ class Result:
     errors: int
     table: int | None = None
     hand: int | None = None
-    peak: int = 0
-    points: int = 0
+    peak: int = 0  # The most chips they had at the end of any hand, which is their score for keeping a table of results from week to week
 
 
 @dataclass
@@ -176,7 +166,6 @@ class Tournament:
 
         for place, result in enumerate(results, start=1):
             result.place = place
-            result.points = points(result.peak)
 
         return results
 
