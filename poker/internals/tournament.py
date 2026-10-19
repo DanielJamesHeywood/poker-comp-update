@@ -10,16 +10,16 @@ from .rules import Rules
 TABLE_SIZE = 8  # The most players who can sit at one table
 
 
-BONUS_CHIPS = 10  # Added to a player's score for every player they finish ahead of
+BONUS_CHIPS = 10  # Added to a player's score for last place, twice for the place above, and so on up to the winner
 
 
 def score(peak: int, place: int, entrants: int) -> int:
     # A player's score, for keeping a table of results from week to week: their peak chips, the most chips they had at the end
-    # of any hand, and BONUS_CHIPS for every player they finished ahead of.
+    # of any hand, and a bonus for where they finished: BONUS_CHIPS for last, twice that for the place above, and so on.
     #
     # Most of it is for building a stack. A bot which folds every hand can outlast bots which gamble with each other, but it never
     # wins a pot, so its peak chips stay at about its starting stack and it only gets the bonus for where it finished.
-    return peak + BONUS_CHIPS * (entrants - place)
+    return peak + BONUS_CHIPS * (entrants + 1 - place)
 
 
 @dataclass

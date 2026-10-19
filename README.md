@@ -161,7 +161,7 @@ The game carries on until one player has every chip.
 
 All of these numbers are set in `poker/internals/rules.yaml`.
 
-Each player's score is their peak chips, which is the most chips they ever had at the end of a hand, plus 10 bonus chips for every player they finished ahead of. With 28 players, the winner ends with all 5,600 chips and scores 5,600 + 270 = 5,870. Someone who never got past their starting stack of 200 scores 200, plus 10 for each player they outlasted. A tournament with more players has more chips in play, so it gives bigger scores.
+Each player's score is their peak chips, which is the most chips they ever had at the end of a hand, plus bonus chips for where they finished: 10 for last, 20 for second to last, and so on. With 28 players, the winner ends with all 5,600 chips and scores 5,600 + 280 = 5,880. Someone who never got past their starting stack of 200 scores 200 plus their bonus, so 210 if they came last. A tournament with more players has more chips in play, so it gives bigger scores.
 
 Most of the score is for building a stack. A bot which folds every hand can outlast bots which gamble with each other, but it never wins a pot, so its peak chips stay at about its starting stack and it only gets the bonus for where it finished. The best way to score is to win chips, as in a real game of poker.
 
