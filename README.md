@@ -174,7 +174,7 @@ These are the rules every game is played by, including the weekly competition. A
 
 ### Tables
 
-- A table seats at most 8 players. With more than 8, players are dealt out in turn, in the order they are given, between as few tables as they fit at, so the tables are as even as they can be.
+- A table seats at most 8 players. With more than 8, players are dealt out in turn, in the order they are given, between as few tables as they fit at, so the tables are as even as they can be. In the weekly tournament, the order is drawn at random.
 - The tables play **hand for hand**: no table deals its next hand until every other table has finished the one before. So hand 20 at one table is played alongside hand 20 at every other.
 - Players are only moved between tables once every table has finished a hand.
   - **Breaking a table:** when everyone left would fit at fewer tables, the table with the fewest players is broken up, and its players are sent one at a time to whichever tables have the fewest players.

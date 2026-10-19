@@ -13,12 +13,12 @@ from pathlib import Path
 import yaml
 
 from .engine import AI
+from .rules import Rules
 from .score import score as score_ai
+from .tournament import TABLE_SIZE, Tournament
 
 
 STARTING_PATH = list(sys.path)  # The module search path from before any bot is loaded, for the windows to start with
-from .rules import Rules
-from .tournament import TABLE_SIZE, Tournament
 
 
 def load_ais(specs: list[str], least: int = 2) -> list[tuple[str, AI]]:
@@ -241,7 +241,13 @@ def ending(tournament: Tournament) -> list[str]:
 
 def load_players(args: argparse.Namespace) -> tuple[list[tuple[str, AI]], dict[str, Team]]:
     specs, teams = load_snapshots(args.snapshots) if args.snapshots else ([], {})
-    return load_ais(specs + args.ais), teams
+    ais = load_ais(specs + args.ais)
+
+    if args.snapshots:
+        # Seats are drawn at random, as in a real tournament, and the same seed draws them the same way
+        random.Random(args.seed).shuffle(ais)
+
+    return ais, teams
 
 
 def run(args: argparse.Namespace):
