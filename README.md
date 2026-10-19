@@ -84,6 +84,23 @@ Please note, command line tools will not work from a github codespace, instead t
 
 Installing the project gives you a `poker` command, which plays AIs against each other. An AI is any python file with a `myAI` function, and there are a few simple ones to play against in the `examples` folder. At least 2 AIs can play. More than 8 are split between tables like a tournament, and `poker run` opens a window for each table. As players go out, the smallest table is broken up and its players are moved to the others, and the tables are kept within one player of each other. The tables play hand for hand, so no table gets ahead of the others, and the game carries on until one player has every chip. To stop early instead, `--hands` sets how many hands each table plays, and then whoever has the most chips wins. When it ends, poker prints where everyone finished and the hand (and table) on which each player went out.
 
+The bots in the `examples` folder each follow one simple rule:
+
+| Bot | Rule |
+|---|---|
+| `default.py` | Checks when there is nothing to call, and folds to any bet |
+| `just_call.py` | Calls every bet |
+| `just_raise_small_blind.py` | Raises by the small blind every time |
+| `raise_half_stack.py` | Raises by half of the chips it has left after calling, every time |
+| `bet_the_pot.py` | Raises by the size of the pot every time |
+| `just_go_all_in.py` | Goes all in every time |
+| `steal_blinds.py` | Raises by the big blind whenever nobody has bet more than the big blind, and folds to anything bigger |
+| `bully.py` | Raises by the size of the pot when it has the most chips at the table, and otherwise checks or folds |
+| `limp.py` | Calls before the flop, then checks or folds |
+| `defend_big_blind.py` | Calls any bet when it is the big blind, and otherwise checks or folds |
+| `go_all_in_on_pair.py` | Goes all in when its two cards are a pair, and otherwise checks or folds |
+| `go_all_in_on_ace.py` | Goes all in when it holds an ace, and otherwise checks or folds |
+
 #### 👀 Watch a match
 ```bash
 poker run myAI.py examples/just_call.py examples/default.py
