@@ -94,7 +94,7 @@ The bots in the `examples` folder each follow one simple rule:
 | `call_when_big_blind.py` | Calls any bet when it is the big blind, and otherwise checks or folds |
 | `raise_by_small_blind.py` | Raises by the small blind every time |
 | `raise_by_big_blind_unless_raised.py` | Raises by the big blind whenever nobody has bet more than the big blind, and folds to anything bigger |
-| `raise_by_half_stack.py` | Raises by half of the chips it has left after calling, every time |
+| `raise_by_half_of_stack.py` | Raises by half of the chips it has left after calling, every time |
 | `raise_by_pot.py` | Raises by the size of the pot every time |
 | `raise_by_pot_when_biggest_stack.py` | Raises by the size of the pot when it has the most chips at the table, and otherwise checks or folds |
 | `just_go_all_in.py` | Goes all in every time |
