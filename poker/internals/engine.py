@@ -3,6 +3,8 @@ from __future__ import annotations
 import random
 import signal
 import threading
+import time
+from collections import Counter
 from contextlib import contextmanager
 from typing import Callable
 
@@ -62,6 +64,13 @@ class Seat:
         self.total_bet = 0  # Chips put in during the current hand
         self.errors = 0
         self.peak = stack  # The most chips this player has had at the end of any hand, which is their score
+
+        # How they played, which poker test reports
+        self.actions: Counter[str] = Counter()  # How often each kind of action was played for them, and how often it put them all in
+        self.problems: Counter[str] = Counter()  # Why their bad actions happened
+        self.asked = 0  # How many actions their AI was asked for
+        self.thinking = 0.0  # Seconds their AI spent choosing them
+        self.slowest = 0.0
 
 
 class Match:
@@ -344,6 +353,7 @@ class Match:
         else:
             # The same as defaultAI in myAI.py
             seat.errors += 1
+            seat.problems[problem] += 1
             kind = Action.Kind.CHECK if to_call == 0 else Action.Kind.FOLD
 
         if kind is Action.Kind.RAISE:
@@ -375,14 +385,27 @@ class Match:
             self.current_bet = seat.bet
             text, label = (f"bets {seat.bet}", f"Bet {seat.bet}") if opening else (f"raises to {seat.bet}", f"Raise {seat.bet}")
 
+        seat.actions[kind.value] += 1
+
         if seat.stack == 0 and kind in (Action.Kind.CALL, Action.Kind.RAISE):
             text += " and is all in"
+            seat.actions["all in"] += 1
 
         self.frame(kind.value, f"{seat.name} {text}", seat=seat, label=label, problem=problem)
 
     def ask(self, seat: Seat) -> tuple[Action | None, str | None]:
         state = self.state_for(seat)
+        started = time.perf_counter()
 
+        try:
+            return self.answer(seat, state)
+        finally:
+            took = time.perf_counter() - started
+            seat.asked += 1
+            seat.thinking += took
+            seat.slowest = max(seat.slowest, took)
+
+    def answer(self, seat: Seat, state: GameState) -> tuple[Action | None, str | None]:
         try:
             with time_limit(self.timeout):
                 action = seat.ai(state)

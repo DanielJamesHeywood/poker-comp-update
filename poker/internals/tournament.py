@@ -33,6 +33,7 @@ class Result:
     hand: int | None = None
     peak: int = 0  # The most chips they had at the end of any hand
     score: int = 0
+    seat: Seat | None = None  # Their seat, which says how they played
 
 
 @dataclass
@@ -170,8 +171,8 @@ class Tournament:
         # Any exact tie goes to the lower numbered table, then the earlier seat, so the places never depend on which table happened
         # to play the hand first
         gone = sorted(self.exits, key=lambda exit: (exit.hand, exit.started_with, -exit.table, -exit.position), reverse=True)
-        results = [Result(place=0, name=seat.name, stack=seat.stack, errors=seat.errors, peak=seat.peak) for seat in still_in]
-        results += [Result(place=0, name=exit.seat.name, stack=0, errors=exit.seat.errors, table=exit.table, hand=exit.hand, peak=exit.seat.peak) for exit in gone]
+        results = [Result(place=0, name=seat.name, stack=seat.stack, errors=seat.errors, peak=seat.peak, seat=seat) for seat in still_in]
+        results += [Result(place=0, name=exit.seat.name, stack=0, errors=exit.seat.errors, table=exit.table, hand=exit.hand, peak=exit.seat.peak, seat=exit.seat) for exit in gone]
 
         for place, result in enumerate(results, start=1):
             result.place = place

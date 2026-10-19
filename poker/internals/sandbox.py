@@ -291,10 +291,10 @@ class Sandbox:
             "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
             "--read-only", "--tmpfs", "/tmp:size=64m,mode=1777",
             "--env", "HOME=/tmp", "--env", "PYTHONPATH=/official", "--env", "PYTHONDONTWRITEBYTECODE=1", "--env", "PYTHONHASHSEED=0",
-            "--volume", f"{Path(folder).resolve()}:/submission:ro",
+            "--volume", f"{Path(folder).resolve()}:/submission:ro", "--workdir", "/submission",  # Run from the repo, as CI is
             "--volume", f"{ENGINE}:/official/poker:ro",
             "--entrypoint", "python", self.image,
-            "-m", "poker.internals.sandbox", "/submission/myAI.py", str(self.timeout), seed,
+            "-P", "-m", "poker.internals.sandbox", "/submission/myAI.py", str(self.timeout), seed,  # -P keeps the repo's own copy of poker out
         ]
 
     def stop(self):
