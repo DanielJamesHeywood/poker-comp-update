@@ -88,7 +88,7 @@ The bots in the `examples` folder each follow one simple rule. A rule never chan
 
 | Bot | Rule |
 |---|---|
-| `check_or_fold.py` | Checks when there is nothing to call, and folds to any bet |
+| `default.py` | Checks when there is nothing to call, and folds to any bet. This is also what is played for any bot which makes an invalid move |
 | `call.py` | Calls every bet |
 | `call_preflop.py` | Calls before the flop, then checks or folds |
 | `call_when_big_blind.py` | Calls any bet when it is the big blind, and otherwise checks or folds |
@@ -104,7 +104,7 @@ The bots in the `examples` folder each follow one simple rule. A rule never chan
 
 #### 👀 Watch a match
 ```bash
-poker run myAI.py examples/call.py examples/check_or_fold.py
+poker run myAI.py examples/call.py examples/default.py
 ```
 
 This opens a window and plays a match in it, showing everyone's cards, the bets and what each AI does. The window can be resized, and adding `--fullscreen` starts it filling the screen.
@@ -121,7 +121,7 @@ This opens a window and plays a match in it, showing everyone's cards, the bets 
 
 #### ⚡ Run headless tests
 ```bash
-poker test 100 myAI.py examples/call.py examples/raise_by_small_blind.py examples/check_or_fold.py
+poker test 100 myAI.py examples/call.py examples/raise_by_small_blind.py examples/default.py
 ```
 
 This plays 100 matches without showing them, and prints how each AI did.
@@ -134,7 +134,7 @@ poker test 100 myAI.py examples/raise_by_small_blind.py --seed 69
 
 #### 🆚 Comparing versions of your AI
 ```bash
-poker run new=myAI.py old=old/myAI.py examples/check_or_fold.py
+poker run new=myAI.py old=old/myAI.py examples/default.py
 ```
 
 Writing `NAME=PATH` chooses the name an AI is shown with. Run `poker run --help` to see the other options, such as `--hands`, `--stack` and `--blinds`.
@@ -148,7 +148,7 @@ This scores `myAI.py` the same way as when you push: it checks your AI returns a
 
 #### 📜 Trying different rules
 ```bash
-poker run myAI.py examples/check_or_fold.py --rules my_rules.yaml
+poker run myAI.py examples/default.py --rules my_rules.yaml
 ```
 
 The rules of a match, such as how many chips everyone starts with and how quickly the blinds go up, are in `poker/internals/rules.yaml`. To try different ones, copy that file, change the copy, and pass it with `--rules`. Your copy only needs the lines which are different.
