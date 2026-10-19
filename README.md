@@ -155,9 +155,9 @@ These can be constructed using `Action.check()`, `Action.call()`, `Action.raise_
 
 The game is no-limit Texas hold'em. Everyone starts a match with the same number of chips, and a player who runs out is out of the match.
 
-The structure is a typical tournament's. Everyone starts with 10,000 chips, which is 100 big blinds. The blinds go up a level every 18 hands, and each level is between 25% and 50% more than the last: 50/100, 75/150, 100/200, 150/300, 200/400, 250/500, 375/750, 500/1000 and so on. From the fourth level, everyone also pays an ante of an eighth of the big blind every hand. With more than one table, every table is on the same level.
+The structure is a typical tournament's. Everyone starts with 10,000 chips, which is 100 big blinds. The blinds go up a level every 15 hands, and each level is between 25% and 50% more than the last: 50/100, 75/150, 100/200, 150/300, 200/400, 250/500, 375/750, 500/1000 and so on. From the fourth level, everyone also pays an ante of an eighth of the big blind every hand. With more than one table, every table is on the same level.
 
-The game carries on until one player has every chip. With 28 players, a watched tournament takes about an hour at 1x speed.
+The game carries on until one player has every chip. With 28 players, a watched tournament takes about 55 minutes at 1x speed.
 
 All of these numbers are set in `poker/internals/rules.yaml`.
 

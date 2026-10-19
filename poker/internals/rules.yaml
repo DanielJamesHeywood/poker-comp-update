@@ -14,10 +14,10 @@ blinds:
 # Every so often the blinds go up a level, as they do in a tournament.
 # Say how often in orbits or in hands, and leave the other as 0. Leaving both as 0 keeps the blinds the same all match.
 # An orbit completes after every player still in has had the button. Player eliminations do not recalculate past orbit progress.
-# Every 18 hands makes a watched tournament of 28 players take about an hour at 1x speed.
+# Every 15 hands makes a watched tournament of 28 players take about 55 minutes at 1x speed.
 blinds_go_up:
   every_orbits: 0
-  every_hands: 18
+  every_hands: 15
   # How many times the starting blinds each level is. After the last level the pattern repeats, ten times bigger.
   levels: [1, 1.5, 2, 3, 4, 5, 7.5]
 
