@@ -150,24 +150,17 @@ class Tournament:
     def players(self) -> list[Seat]:
         return [seat for table in self.tables for seat in table.players()]
 
-    def table_of(self, seat: Seat) -> Table:
-        return next(table for table in self.tables if seat in table.match.seats)
-
-    def open_tables(self) -> list[Table]:
-        return [table for table in self.tables if not table.closed]
-
     def hands_played(self) -> int:
         return sum(table.hands_played() for table in self.tables)
 
     # ---- Going out
 
     def record_exits(self, table: Table, hand: dict):
-        started = dict(zip(hand["players"], hand["frames"][0]["stacks"]))
-
-        for seat in table.match.seats:
+        # Called straight after the hand, so the seats are still in the order the hand was played in
+        for seat, started_with in zip(table.match.seats, hand["frames"][0]["stacks"]):
             if seat.stack == 0 and seat not in self.recorded:
                 self.recorded.add(seat)
-                self.exits.append(Exit(seat=seat, table=table.number, hand=hand["number"], started_with=started.get(seat.name, 0)))
+                self.exits.append(Exit(seat=seat, table=table.number, hand=hand["number"], started_with=started_with))
 
     def standings(self) -> list[Result]:
         # Players still in come first, most chips first. Then everyone who went out, the last to go out first. Of players who went

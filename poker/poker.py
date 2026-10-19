@@ -10,6 +10,7 @@ import yaml
 
 from .internals.engine import AI
 from .internals.rules import Rules
+from .internals.score import NUM_MATCHES, NUM_STATES, score as score_ai
 from .internals.tournament import TABLE_SIZE, Tournament
 
 
@@ -181,11 +182,12 @@ def run(args: argparse.Namespace):
         over = tournament.is_over()
 
         for table in tournament.tables:
+            # A table which is down to one player is still in play, as players may be moved to it, so its window carries on
             if table.closed:
                 news = "closed"
             elif over:
                 news = "over"
-            elif not table.can_deal():
+            elif not table.in_play():
                 news = "waiting"
             else:
                 continue
@@ -219,8 +221,8 @@ def run(args: argparse.Namespace):
             for number in list(waiting):
                 table = tournament.tables[number - 1]
 
-                if tournament.is_over() or not table.can_deal():
-                    waiting.remove(number)  # It has nothing more to play, and tell_windows says why
+                if tournament.is_over() or not table.in_play():
+                    waiting.remove(number)  # It has nothing more to play, and tell_windows says why. A table which is only waiting for players stays.
 
                 elif tournament.may_deal(table):
                     waiting.remove(number)
@@ -254,7 +256,7 @@ def run(args: argparse.Namespace):
             elif message == "lost":
                 windows.open_window(number, seating()[number])
 
-            elif message == "closed" and not told.get(number) == "closed":
+            elif message == "closed" and told.get(number) != "closed":
                 break  # Closing the window of a table which is still playing ends everything, as ESC always has
 
     except KeyboardInterrupt:
@@ -264,6 +266,7 @@ def run(args: argparse.Namespace):
         windows.close()
 
     print_standings(tournament)
+
 
 def test(args: argparse.Namespace):
     ais = load_ais(args.ais)
@@ -297,7 +300,7 @@ def test(args: argparse.Namespace):
 
     width = max(len(name) for name in chips)
     tables = -(-len(ais) // TABLE_SIZE)
-    length = f"of up to {rules.hands} hands" + (" a table" if tables > 1 else "") if rules.hands else "played until one AI has every chip"
+    length = (f"of up to {rules.hands} hands" + (" a table" if tables > 1 else "")) if rules.hands else "played until one AI has every chip"
     print(f"{args.matches} matches {length}" + (f", starting on {tables} tables" if tables > 1 else ""))
     print(f"{'AI':<{width}}  {'Won':>6}  {'Avg chips':>9}  {'Avg place':>9}  {'Bad actions':>11}")
 
@@ -306,8 +309,6 @@ def test(args: argparse.Namespace):
 
 
 def score(args: argparse.Namespace):
-    from .internals.score import score as score_ai
-
     (name, ai), = load_ais([args.ai], least=1)
     rules = load_rules(args)
     score_ai(name, ai, rules=rules, output=Path(args.output), states=args.states, matches=args.matches)
@@ -320,19 +321,21 @@ def main(argv: list[str] | None = None):
     options.add_argument("--stack", type=positive, help="chips each AI starts with, in place of what the rules say")
     options.add_argument("--blinds", type=parse_blinds, metavar="SMALL/BIG", help="the blinds at the start, like 10/20, in place of what the rules say")
     options.add_argument("--timeout", type=float, metavar="SECONDS", help="how long an AI gets for each action, or 0 for no limit, in place of what the rules say")
-    options.add_argument("--seed", type=int, help="makes the cards the same every time")
+
+    seeded = argparse.ArgumentParser(add_help=False, parents=[options])  # poker score always uses the same cards, so it has no --seed
+    seeded.add_argument("--seed", type=int, help="makes the cards the same every time")
 
     ais_help = f"path to a python file with a myAI function, or NAME=PATH to choose the name it is shown with (at least 2, and more than {TABLE_SIZE} are split between tables)"
 
     parser = argparse.ArgumentParser(prog="poker", description="Play poker AIs against each other.")
     commands = parser.add_subparsers(dest="command", required=True)
 
-    run_parser = commands.add_parser("run", parents=[options], help="play a match and watch it, with a window for each table")
+    run_parser = commands.add_parser("run", parents=[seeded], help="play a match and watch it, with a window for each table")
     run_parser.add_argument("ais", nargs="+", metavar="AI", help=ais_help)
     run_parser.add_argument("--fullscreen", action="store_true", help="start with the window filling the screen")
     run_parser.set_defaults(function=run)
 
-    test_parser = commands.add_parser("test", parents=[options], help="play many matches without watching and print the results")
+    test_parser = commands.add_parser("test", parents=[seeded], help="play many matches without watching and print the results")
     test_parser.add_argument("matches", type=positive, help="how many matches to play")
     test_parser.add_argument("ais", nargs="+", metavar="AI", help=ais_help)
     test_parser.set_defaults(function=test)
@@ -340,8 +343,8 @@ def main(argv: list[str] | None = None):
     score_parser = commands.add_parser("score", parents=[options], help="score an AI as the competition does when you push, and write the score to a file")
     score_parser.add_argument("ai", nargs="?", default="myAI.py", metavar="AI", help="path to a python file with a myAI function (myAI.py if left out)")
     score_parser.add_argument("--output", default="score.txt", metavar="FILE", help="where to write the score (score.txt if left out)")
-    score_parser.add_argument("--states", type=int, default=1000, help="how many sample states to check the AI returns an Action on")
-    score_parser.add_argument("--matches", type=int, default=100, help="how many heads-up matches to play against a random bot")
+    score_parser.add_argument("--states", type=whole, default=NUM_STATES, help=f"how many sample states to check the AI returns an Action on ({NUM_STATES} if left out)")
+    score_parser.add_argument("--matches", type=whole, default=NUM_MATCHES, help=f"how many heads-up matches to play against a random bot ({NUM_MATCHES} if left out)")
     score_parser.set_defaults(function=score)
 
     args = parser.parse_args(argv)

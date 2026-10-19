@@ -60,7 +60,6 @@ class Seat:
         self.bet = 0  # Chips put in during the current betting round
         self.total_bet = 0  # Chips put in during the current hand
         self.errors = 0
-        self.busted_on: int | None = None
         self.peak = stack  # The most chips this player has had at the end of any hand, which is their score
 
 
@@ -162,10 +161,6 @@ class Match:
     def dealt_after(self, index: int) -> Seat | None:
         # The next player after the given seat who has chips, going round the table
         return next((self.seats[(index + step) % len(self.seats)] for step in range(1, len(self.seats) + 1) if self.seats[(index + step) % len(self.seats)].stack > 0), None)
-
-    def standings(self) -> list[Seat]:
-        # Most chips first. Players who are out are ordered by how long they lasted.
-        return sorted(self.seats, key=lambda seat: (seat.stack, seat.busted_on or 0), reverse=True)
 
     def play_hand(self, number: int):
         rules = self.rules
@@ -270,14 +265,13 @@ class Match:
 
         hand["board"] = [card_code(card) for card in self.board]
 
-        for seat in dealt:
-            seat.peak = max(seat.peak, seat.stack)
         self.hands.append(hand)
 
         for seat in dealt:
+            seat.peak = max(seat.peak, seat.stack)
+
             if seat.stack == 0:
                 seat.dealt = False
-                seat.busted_on = number
                 self.frame("bust", f"{seat.name} is out", seat=seat, label="Out")
 
         assert self.pot == 0 and sum(seat.stack for seat in self.seats) == total_chips, "Chips were created or destroyed"
