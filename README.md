@@ -147,10 +147,10 @@ Writing `NAME=PATH` chooses the name an AI is shown with. Run `poker run --help`
 
 #### 🏅 Checking your score
 ```bash
-python .github/submit.py
+poker score
 ```
 
-This runs the same tests as when you push: it checks your AI returns an action, in time, on 1000 sample states. A bot which passes gets 10 points, which are printed and written to `score.txt`. All of your other points come from the weekly tournaments.
+This runs the same tests as when you push: it checks your AI returns an action, in time, on 1000 sample states. A bot which passes gets 100 points, which are printed and written to `score.txt`. All of your other points come from the weekly tournaments.
 
 #### 📜 Trying different rules
 ```bash
@@ -231,7 +231,7 @@ Most of the score is for building a stack. A bot which folds every hand can outl
 
 ### Leaderboard Points
 
-- **10 points** when you push a bot which passes the tests, which check it returns an action, in time, on 1000 sample states.
+- **100 points** when you push a bot which passes the tests, which check it returns an action, in time, on 1000 sample states.
 - Every weekly tournament then adds your **tournament score** to your total on the leaderboard.
 - Your points add up from week to week, even when you push a new bot.
 - Each week, your latest bot which passes the tests plays. If your newest push fails the tests, your last one which passed plays instead.
@@ -282,7 +282,9 @@ Every week at code night, your latest bot which passes the tests will compete ag
 
 ## 🗓️ Running the Weekly Tournament
 
-This is for the organisers. Each week:
+This is for the organisers. Whenever this template changes, bring every team's repo up to date with the website's `db/push-template-updates.ts`, which also scores every bot again. It can't change `.github/workflows`, so check the repos it lists as having an out of date workflow.
+
+Each week:
 
 1. **Download every team's bot.** In the website folder, this picks each team's latest submission which passed the tests:
    ```bash

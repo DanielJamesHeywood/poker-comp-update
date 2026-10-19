@@ -13,6 +13,7 @@ from pathlib import Path
 import yaml
 
 from .engine import AI
+from .score import score as score_ai
 
 
 STARTING_PATH = list(sys.path)  # The module search path from before any bot is loaded, for the windows to start with
@@ -390,6 +391,11 @@ def test(args: argparse.Namespace):
         print(f"{name:<{width}}  {wins[name] / args.matches:>6.1%}  {chips[name] / args.matches:>9.1f}  {places[name] / args.matches:>9.2f}  {errors[name]:>11}")
 
 
+def score(args: argparse.Namespace):
+    (_, ai), = load_ais([args.ai], least=1)
+    score_ai(ai, args.output)
+
+
 def main(argv: list[str] | None = None):
     options = argparse.ArgumentParser(add_help=False)
     options.add_argument("--rules", metavar="FILE", help="a yaml file of rules to play by, like poker/internals/rules.yaml. It only needs the rules which are different")
@@ -419,6 +425,11 @@ def main(argv: list[str] | None = None):
     test_parser.add_argument("matches", type=positive, help="how many matches to play")
     test_parser.add_argument("ais", nargs="*", metavar="AI", help=ais_help)
     test_parser.set_defaults(function=test)
+
+    score_parser = commands.add_parser("score", help="score an AI as the competition does when you push, and write the score to a file")
+    score_parser.add_argument("ai", nargs="?", default="myAI.py", metavar="AI", help="path to a python file with a myAI function (myAI.py if left out)")
+    score_parser.add_argument("--output", default="score.txt", metavar="FILE", help="where to write the score (score.txt if left out)")
+    score_parser.set_defaults(function=score)
 
     args = parser.parse_args(argv)
     args.function(args)
