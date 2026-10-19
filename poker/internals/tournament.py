@@ -45,7 +45,8 @@ class Table:
 
     def in_play(self) -> bool:
         # Still open, with hands left to play. It may be down to one player, waiting for players to be moved to it or from it.
-        return not self.closed and bool(self.players()) and self.hands_played() < self.match.rules.hands
+        limit = self.match.rules.hands  # 0 means no limit
+        return not self.closed and bool(self.players()) and (not limit or self.hands_played() < limit)
 
     def can_deal(self) -> bool:
         return self.in_play() and not self.match.is_over()

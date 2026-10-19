@@ -3,7 +3,7 @@
 # To try different rules, copy this file somewhere else, change the copy, and give it to poker with --rules.
 # A copy only needs the lines which are different, and everything else is taken from here.
 
-hands: 100    # A match stops after this many hands, if more than one player is still in
+hands: 0      # 0 plays on until one player has every chip. Any other number stops after that many hands, and whoever has the most chips wins
 stack: 200   # The chips each player starts with
 timeout: 1    # The seconds a player gets for each action, or 0 for no limit
 

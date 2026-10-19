@@ -76,6 +76,15 @@ def positive(text: str) -> int:
     return value
 
 
+def whole(text: str) -> int:
+    value = int(text)
+
+    if value < 0:
+        raise argparse.ArgumentTypeError(f"expected a whole number of at least 0, but got {text}")
+
+    return value
+
+
 def load_rules(args: argparse.Namespace) -> Rules:
     # The rules come from poker/rules.yaml or the file given with --rules, and then the command line can change a few of them
     try:
@@ -286,7 +295,8 @@ def test(args: argparse.Namespace):
 
     width = max(len(name) for name in chips)
     tables = -(-len(ais) // TABLE_SIZE)
-    print(f"{args.matches} matches of up to {rules.hands} hands" + (f" a table, starting on {tables} tables" if tables > 1 else ""))
+    length = f"of up to {rules.hands} hands" + (" a table" if tables > 1 else "") if rules.hands else "played until one AI has every chip"
+    print(f"{args.matches} matches {length}" + (f", starting on {tables} tables" if tables > 1 else ""))
     print(f"{'AI':<{width}}  {'Won':>6}  {'Avg chips':>9}  {'Avg place':>9}  {'Bad actions':>11}")
 
     for name in sorted(chips, key=lambda name: (wins[name], chips[name]), reverse=True):  # Best win rate first, then most chips
@@ -304,7 +314,7 @@ def score(args: argparse.Namespace):
 def main(argv: list[str] | None = None):
     options = argparse.ArgumentParser(add_help=False)
     options.add_argument("--rules", metavar="FILE", help="a yaml file of rules to play by, like poker/rules.yaml. It only needs the rules which are different")
-    options.add_argument("--hands", type=positive, help="most hands to play in a match, in place of what the rules say")
+    options.add_argument("--hands", type=whole, help="most hands each table plays, or 0 to play until one AI has every chip, in place of what the rules say")
     options.add_argument("--stack", type=positive, help="chips each AI starts with, in place of what the rules say")
     options.add_argument("--blinds", type=parse_blinds, metavar="SMALL/BIG", help="the blinds at the start, like 10/20, in place of what the rules say")
     options.add_argument("--timeout", type=float, metavar="SECONDS", help="how long an AI gets for each action, or 0 for no limit, in place of what the rules say")

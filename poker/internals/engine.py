@@ -95,11 +95,12 @@ class Match:
         self.current_bet = 0
 
     def play(self):
-        for number in range(1, self.rules.hands + 1):
-            if self.is_over():
-                break
+        # Plays until one player has every chip, or until the most hands the rules allow if they set a limit
+        number = 1
 
+        while not self.is_over() and (not self.rules.hands or number <= self.rules.hands):
             self.play_hand(number)
+            number += 1
 
     def is_over(self) -> bool:
         return sum(seat.stack > 0 for seat in self.seats) < 2

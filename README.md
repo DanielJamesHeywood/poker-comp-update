@@ -82,7 +82,7 @@ Please note, command line tools will not work from a github codespace, instead t
 
 ## 🎯 Running the Game
 
-Installing the project gives you a `poker` command, which plays AIs against each other. An AI is any python file with a `myAI` function, and there are a few simple ones to play against in the `examples` folder. At least 2 AIs can play. More than 8 are split between tables like a tournament, and `poker run` opens a window for each table. As players go out, the smallest table is broken up and its players are moved to the others, and the tables are kept within one player of each other. The tables play hand for hand, so no table gets ahead of the others, and `--hands` is how many hands each table plays. When it ends, poker prints where everyone finished and the hand (and table) on which each player went out.
+Installing the project gives you a `poker` command, which plays AIs against each other. An AI is any python file with a `myAI` function, and there are a few simple ones to play against in the `examples` folder. At least 2 AIs can play. More than 8 are split between tables like a tournament, and `poker run` opens a window for each table. As players go out, the smallest table is broken up and its players are moved to the others, and the tables are kept within one player of each other. The tables play hand for hand, so no table gets ahead of the others, and the game carries on until one player has every chip. To stop early instead, `--hands` sets how many hands each table plays, and then whoever has the most chips wins. When it ends, poker prints where everyone finished and the hand (and table) on which each player went out.
 
 #### 👀 Watch a match
 ```bash
