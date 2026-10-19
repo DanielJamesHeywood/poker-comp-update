@@ -14,6 +14,12 @@ Hello all and welcome to the second Warwick AI programming competition!
 
 Don't worry if you're new to programming or AI, there's something here for everyone! For beginners, check out the WAI + Code Soc + UWCS Python course or ask us anything at our weekly code nights. See our [website](https://warwick.ai) for details.
 
+> [!IMPORTANT]
+> ### Please only change `myAI.py`
+> Your whole bot should be in `myAI.py`, and please don't edit, add, rename, move or delete any other file in your repository. That includes the `poker` folder, the `examples` folder, `pyproject.toml`, `README.md` and the `.github` folder. Every bot is played with the same copy of these files, so changing them can stop yours from working.
+>
+> If you have an idea for the game itself, we'd love to hear it (see [Contributing](#-contributing)).
+
 ### 🎯 Competition Highlights
 
 - **Format:** Squad up in teams of any size!
@@ -30,7 +36,7 @@ Once the competition is over, we'd love to accept any and all creations as open 
 
 Also, this is a also new project with room for improvement. If you have ideas or suggestions:
 - Message us directly
-- Send a pull request with your changes
+- Send a pull request with your changes to the main competition repository, not to your own submission
 
 Open source contributions are great practice and go an long way on a CV!
 
@@ -228,7 +234,7 @@ Most of the score is for building a stack. A bot which folds every hand can outl
 ## 🧠 Writing Your AI
 
 ### The Basics
-Your submission is the `myAI` function in `myAI.py`:
+Your submission is the `myAI` function in `myAI.py`, and **`myAI.py` should be the only file you change**. Please put everything your bot needs, including any helper functions, in `myAI.py`:
 
 ```python
 def myAI(state: GameState) -> Action:
@@ -260,13 +266,17 @@ There's all sorts of ways to write an AI for this competition:
 
 To submit your AI, simply push a commit to your repository. 
 
+> [!IMPORTANT]
+> **Your commits should only change `myAI.py`.** Before you push, check that no other file has changed, for example with `git status`. If anything other than `myAI.py` is listed, undo the change with `git restore <file>`, or delete the file if you added it.
+
 Every week at code night, your latest bot will compete against all other submitted bots. Points will be awarded, which you will be able to see on our website! <https://warwick.ai>
 
 ---
 
 ## Important!!!
 
-Don't change anything in the poker folder!
+> [!IMPORTANT]
+> **Please only change `myAI.py`,** and put all of your code, including helper functions, in it.
 
 Other than this, have fun and see you at code nights! 
 
