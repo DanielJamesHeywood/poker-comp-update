@@ -288,6 +288,8 @@ Other than this, have fun and see you at code nights!
 - Message us with questions
 
 ### Credits
+Thanks to Sam for their work on the user interface, and to Fin for the database integration.
+
 The card and chip art is from the [(Pixel) Poker Cards](https://ivoryred.itch.io/pixel-poker-cards) pack by IvoryRed, used under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 
 ---

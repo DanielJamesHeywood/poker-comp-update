@@ -86,9 +86,10 @@ class Rules:
 
         number("share in chips_cut", self.cut_share, 0, 1)
 
-        if not endless and self.hands == 0 and not (self.blinds_up_every_orbits or self.blinds_up_every_hands or self.cut_every_orbits or self.cut_every_hands):
-            # Players who only check and fold could pass the same blinds back and forth forever
-            raise ValueError("Expected the blinds to go up or the chips to be cut when hands is 0, as otherwise a match might never end")
         number("chips in ante", self.ante, 0)
         whole("from_orbit in ante", self.ante_from_orbit, 0)
         whole("from_level in ante", self.ante_from_level, 0)
+
+        if not endless and self.hands == 0 and not (self.blinds_up_every_orbits or self.blinds_up_every_hands or self.cut_every_orbits or self.cut_every_hands):
+            # Players who only check and fold could pass the same blinds back and forth forever
+            raise ValueError("Expected the blinds to go up or the chips to be cut when hands is 0, as otherwise a match might never end")
