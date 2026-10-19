@@ -113,13 +113,33 @@ class Match:
             self.button = (self.button - 1) % max(len(self.seats), 1)
 
     def add(self, seat: Seat):
-        # Sits a player down between hands, just before the button. That makes them the big blind on the next hand, so they can't skip paying it.
+        # Sits a player down between hands, straight after the player who will be the small blind on the next hand.
+        # That makes them the big blind on the next hand, so they can't skip paying the blinds by moving tables.
         seat.dealt = seat.folded = False
         seat.blind = None
         seat.hole_cards = []
         seat.bet = seat.total_bet = 0
-        self.seats.insert(self.button, seat)
-        self.button += 1
+        order = [self.seats[(self.button + 1 + index) % len(self.seats)] for index in range(len(self.seats))] if self.seats else []
+        order = [other for other in order if other.stack > 0]  # The next button, then the next small blind, and so on
+
+        if not order:
+            self.seats.append(seat)
+            return
+
+        index = self.seats.index(order[min(1, len(order) - 1)]) + 1
+        self.seats.insert(index, seat)
+
+        if index <= self.button:
+            self.button += 1
+
+        if self.dealt_after(self.button) is seat:
+            # With one or two players left, that seat is straight after the button. The button still has to move on to the
+            # player who was going to get it, so it is treated as passing over the new player.
+            self.button = index
+
+    def dealt_after(self, index: int) -> Seat | None:
+        # The next player after the given seat who has chips, going round the table
+        return next((self.seats[(index + step) % len(self.seats)] for step in range(1, len(self.seats) + 1) if self.seats[(index + step) % len(self.seats)].stack > 0), None)
 
     def standings(self) -> list[Seat]:
         # Most chips first. Players who are out are ordered by how long they lasted.

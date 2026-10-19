@@ -84,8 +84,9 @@ class PokerRenderer:
 
         rl.set_trace_log_level(rl.LOG_NONE)
         size, position = (WIDTH, HEIGHT), None
+        measured = not fullscreen and tile[1] > 1
 
-        if not fullscreen and tile[1] > 1:
+        if measured:
             size, position = self.tile_layout(*tile)
 
         rl.set_config_flags(rl.FLAG_WINDOW_RESIZABLE)
@@ -94,6 +95,8 @@ class PokerRenderer:
 
         if position is not None:
             rl.set_window_position(*position)
+
+        if measured:
             rl.clear_window_state(rl.FLAG_WINDOW_HIDDEN)  # The hidden window opened to measure the screen leaves this flag set
 
         if fullscreen:
@@ -230,7 +233,7 @@ class PokerRenderer:
         return ANIMATION + HOLDS[self.frames()[self.frame]["kind"]]
 
     def ended(self) -> bool:
-        return self.finished and bool(self.hands) and self.at_end() and self.clock >= self.duration()
+        return self.finished and (not self.hands or (self.at_end() and self.clock >= self.duration()))
 
     def at_end(self) -> bool:
         return self.hand == len(self.hands) - 1 and self.frame == len(self.frames()) - 1
@@ -325,6 +328,9 @@ class PokerRenderer:
                 self.draw_match_over(now)
         else:
             self.draw_panel(None, None)
+
+            if self.ended():
+                self.draw_match_over(None)
 
         self.draw_footer()
         rl.end_mode_2d()
@@ -579,11 +585,13 @@ class PokerRenderer:
         state = "PAUSED" if self.paused else f"{SPEEDS[self.speed]:g}x"
         self.draw_text_right(state, TABLE_WIDTH - 24, 687, 20, self.WARNING if self.paused else self.SOFT)
 
-    def draw_match_over(self, now: dict):
+    def draw_match_over(self, now: dict | None):
         rl.draw_rectangle(0, 0, TABLE_WIDTH, HEIGHT, rl.Color(0, 0, 0, 170))
         title, lines, hints, _ = self.ending
 
-        if title is None:
+        if title is None and now is None:
+            title = "MATCH OVER"
+        elif title is None:
             most = max(now["stacks"])
             leaders = [name for name, chips in zip(self.players, now["stacks"]) if chips == most]
             title = "MATCH OVER"
