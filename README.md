@@ -166,9 +166,8 @@ When the game ends, everyone is given league points:
 - 10 for taking part, so everyone scores
 - 1 for every player they finished above
 - 10 × players ÷ place² for finishing near the top
-- 5 for every player they knocked out (shared, if players split the pot that knocked someone out)
 
-With 28 players and no knockouts, the winner gets 317, second 106, third 66, fourth 52, tenth 31 and last 10. The top places and knockouts are worth the most because a bot which folds every hand can outlast bots which gamble with each other, but it can never win and never knock anyone out. So the best way to score is to play to win, as in a real tournament.
+With 28 players, the winner gets 317, second 106, third 66, fourth 52, tenth 31 and last 10. The top places are worth the most because a bot which folds every hand can outlast bots which gamble with each other, but it can never win. So the best way to score is to play to win, as in a real tournament.
 
 - `chips_bet` is how many chips a player has put in during the current betting round, so the amount you need to call is the biggest `chips_bet` at the table minus your own. `chips_in_pot` is everything bet in the hand so far.
 - `small_blind`, `big_blind` and `ante` are the sizes for the current hand, so your AI can size its bets as the blinds go up.
