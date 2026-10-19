@@ -121,7 +121,7 @@ def print_standings(tournament: Tournament):
     tables = len(tournament.tables)
     print(f"Played {tournament.hands_played()} hands" + (f" across {tables} tables" if tables > 1 else ""))
 
-    print(f"    {'Player':<20} {'Chips':>8} {'Points':>6}")
+    print(f"    {'Player':<20} {'Chips':>8} {'Peak':>8} {'Points':>6}")
 
     for result in tournament.standings():
         notes = []
@@ -132,7 +132,7 @@ def print_standings(tournament: Tournament):
         if result.errors:
             notes.append(f"{result.errors} bad actions")
 
-        print(f"{result.place:>2}. {result.name:<20} {result.stack:>8} {result.points:>6}" + (f"  ({', '.join(notes)})" if notes else ""))
+        print(f"{result.place:>2}. {result.name:<20} {result.stack:>8} {result.peak:>8} {result.points:>6.1f}" + (f"  ({', '.join(notes)})" if notes else ""))
 
     out = tournament.out()
 
@@ -142,7 +142,7 @@ def print_standings(tournament: Tournament):
 
         for number, result in enumerate(out, start=1):
             where = f"hand {result.hand}" + (f" at table {result.table}" if tables > 1 else "")
-            print(f"{number:>2}. {result.name:<20} {where:<22} finished {ordinal(result.place)} for {result.points} points")
+            print(f"{number:>2}. {result.name:<20} {where:<22} finished {ordinal(result.place)} for {result.points:.1f} points")
 
 
 def ordinal(number: int) -> str:

@@ -61,6 +61,7 @@ class Seat:
         self.total_bet = 0  # Chips put in during the current hand
         self.errors = 0
         self.busted_on: int | None = None
+        self.peak = stack  # The most chips this player has had at the end of any hand, which is what league points are given for
 
 
 class Match:
@@ -268,6 +269,9 @@ class Match:
         self.settle(dealt, hand)
 
         hand["board"] = [card_code(card) for card in self.board]
+
+        for seat in dealt:
+            seat.peak = max(seat.peak, seat.stack)
         self.hands.append(hand)
 
         for seat in dealt:

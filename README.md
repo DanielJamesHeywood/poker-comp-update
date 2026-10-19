@@ -161,13 +161,9 @@ The game carries on until one player has every chip.
 
 All of these numbers are set in `poker/internals/rules.yaml`.
 
-When the game ends, everyone is given league points:
+When the game ends, everyone is given league points for their peak chips: the most chips they ever had, as a percentage of all the chips in play. The winner always gets 100, as they end with every chip. Everyone else gets the share of the chips they had at their best, so with 28 players, someone who never got past their starting stack gets about 3.6.
 
-- 1 for taking part, so everyone scores
-- 1 for every player they finished above
-- 10 × players ÷ place² for finishing near the top
-
-With 28 players, the winner gets 308, second 97, third 57, fourth 42, tenth 22 and last 1. The top places are worth the most because a bot which folds every hand can outlast bots which gamble with each other, but it can never win. So the best way to score is to play to win, as in a real tournament.
+Points are only for building a stack. A bot which folds every hand can outlast bots which gamble with each other, but it never wins a pot, so it never gets more than about its starting share. The best way to score is to win chips, as in a real game of poker.
 
 - `chips_bet` is how many chips a player has put in during the current betting round, so the amount you need to call is the biggest `chips_bet` at the table minus your own. `chips_in_pot` is everything bet in the hand so far.
 - `small_blind`, `big_blind` and `ante` are the sizes for the current hand, so your AI can size its bets as the blinds go up.
