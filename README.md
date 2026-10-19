@@ -161,7 +161,7 @@ The game carries on until one player has every chip.
 
 All of these numbers are set in `poker/internals/rules.yaml`.
 
-When the game ends, everyone is given league points for their peak chips: the most chips they ever had, as a percentage of all the chips in play. The winner always gets 100, as they end with every chip. Everyone else gets the share of the chips they had at their best, so with 28 players, someone who never got past their starting stack gets about 3.6.
+When the game ends, everyone is given league points for their peak chips: the most chips they ever had at the end of a hand. The winner ends with every chip, so with 28 players they get 5,600, and someone who never got past their starting stack gets 200. A tournament with more players has more chips in play, so it gives more points.
 
 Points are only for building a stack. A bot which folds every hand can outlast bots which gamble with each other, but it never wins a pot, so it never gets more than about its starting share. The best way to score is to win chips, as in a real game of poker.
 
