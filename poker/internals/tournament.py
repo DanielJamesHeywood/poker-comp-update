@@ -10,6 +10,18 @@ from .rules import Rules
 TABLE_SIZE = 8  # The most players who can sit at one table
 
 
+BONUS_CHIPS = 10  # Added to a player's score for every player they finish ahead of
+
+
+def score(peak: int, place: int, entrants: int) -> int:
+    # A player's score, for keeping a table of results from week to week: their peak chips, the most chips they had at the end
+    # of any hand, and BONUS_CHIPS for every player they finished ahead of.
+    #
+    # Most of it is for building a stack. A bot which folds every hand can outlast bots which gamble with each other, but it never
+    # wins a pot, so its peak chips stay at about its starting stack and it only gets the bonus for where it finished.
+    return peak + BONUS_CHIPS * (entrants - place)
+
+
 @dataclass
 class Result:
     # Where a player finished. Players who went out say on which hand, and at which table.
@@ -19,7 +31,8 @@ class Result:
     errors: int
     table: int | None = None
     hand: int | None = None
-    peak: int = 0  # The most chips they had at the end of any hand, which is their score for keeping a table of results from week to week
+    peak: int = 0  # The most chips they had at the end of any hand
+    score: int = 0
 
 
 @dataclass
@@ -166,6 +179,7 @@ class Tournament:
 
         for place, result in enumerate(results, start=1):
             result.place = place
+            result.score = score(result.peak, place, self.entrants)
 
         return results
 

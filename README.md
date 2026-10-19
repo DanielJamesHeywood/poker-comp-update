@@ -161,9 +161,9 @@ The game carries on until one player has every chip.
 
 All of these numbers are set in `poker/internals/rules.yaml`.
 
-Each player's score is their peak chips: the most chips they ever had at the end of a hand. The winner ends with every chip, so with 28 players they score 5,600, and someone who never got past their starting stack scores 200. A tournament with more players has more chips in play, so it gives bigger scores.
+Each player's score is their peak chips, which is the most chips they ever had at the end of a hand, plus 10 bonus chips for every player they finished ahead of. With 28 players, the winner ends with all 5,600 chips and scores 5,600 + 270 = 5,870. Someone who never got past their starting stack of 200 scores 200, plus 10 for each player they outlasted. A tournament with more players has more chips in play, so it gives bigger scores.
 
-A bot which folds every hand can outlast bots which gamble with each other, but it never wins a pot, so its peak chips stay at about its starting stack. The best way to score is to win chips, as in a real game of poker.
+Most of the score is for building a stack. A bot which folds every hand can outlast bots which gamble with each other, but it never wins a pot, so its peak chips stay at about its starting stack and it only gets the bonus for where it finished. The best way to score is to win chips, as in a real game of poker.
 
 - `chips_bet` is how many chips a player has put in during the current betting round, so the amount you need to call is the biggest `chips_bet` at the table minus your own. `chips_in_pot` is everything bet in the hand so far.
 - `small_blind`, `big_blind` and `ante` are the sizes for the current hand, so your AI can size its bets as the blinds go up.
