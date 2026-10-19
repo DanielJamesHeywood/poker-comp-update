@@ -1,5 +1,12 @@
 from poker.action import Action
 from poker.game_state import GameState
 
+
 def myAI(state: GameState) -> Action:
-    return Action.check() if not state.my_player.chips_in_stack or state.my_player.chips_bet == max(player.chips_bet for player in state.players) else Action.fold()
+    # Checks when there is nothing to call, and folds to any bet
+    to_call = max(player.chips_bet for player in state.players) - state.my_player.chips_bet
+
+    if to_call == 0:
+        return Action.check()
+
+    return Action.fold()

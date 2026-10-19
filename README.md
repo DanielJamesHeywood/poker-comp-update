@@ -103,15 +103,15 @@ This opens a window and plays a match in it, showing everyone's cards, the bets 
 
 #### ⚡ Run headless tests
 ```bash
-poker test 100 myAI.py examples/just_call.py examples/just_raise_by_one.py examples/default.py
+poker test 100 myAI.py examples/just_call.py examples/just_raise_small_blind.py examples/default.py
 ```
 
 This plays 100 matches without showing them, and prints how each AI did.
 
 #### 🎲 Deterministic testing
 ```bash
-poker run myAI.py examples/just_raise_by_one.py --seed 123
-poker test 100 myAI.py examples/just_raise_by_one.py --seed 69
+poker run myAI.py examples/just_raise_small_blind.py --seed 123
+poker test 100 myAI.py examples/just_raise_small_blind.py --seed 69
 ```
 
 #### 🆚 Comparing versions of your AI
