@@ -273,6 +273,7 @@ The game is played by the [Tournament Rules](#-tournament-rules) above. A few th
 
 - `chips_bet` is how many chips a player has put in during the current betting round, so the amount you need to call is the biggest `chips_bet` at the table minus your own. `chips_in_pot` is everything bet in the hand so far.
 - `small_blind`, `big_blind` and `ante` are the sizes for the current hand, so your AI can size its bets as the blinds go up.
+- Every player has an `id`, which stays the same for the whole tournament, even when they move to another table. So your AI can tell players apart, and learn how each one plays, by keeping notes against their `id`. It's a random number, different in every tournament, so it doesn't say who they are. Your own is `state.my_player.id`.
 
 ### Some Inspiration
 
