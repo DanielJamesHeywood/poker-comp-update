@@ -84,7 +84,7 @@ Please note, command line tools will not work from a github codespace, instead t
 
 Installing the project gives you a `poker` command, which plays AIs against each other. An AI is any python file with a `myAI` function, and there are a few simple ones to play against in the `examples` folder. At least 2 AIs can play. More than 8 are split between tables like a tournament, and `poker run` opens a window for each table. As players go out, the smallest table is broken up and its players are moved to the others, and the tables are kept within one player of each other. The tables play hand for hand, so no table gets ahead of the others, and the game carries on until one player has every chip. To stop early instead, `--hands` sets how many hands each table plays, and then whoever has the most chips wins. When it ends, poker prints where everyone finished and the hand (and table) on which each player went out.
 
-The bots in the `examples` folder each follow one simple rule:
+The bots in the `examples` folder each follow one simple rule. A rule never changes as the flop, turn and river are dealt:
 
 | Bot | Rule |
 |---|---|
@@ -92,6 +92,7 @@ The bots in the `examples` folder each follow one simple rule:
 | `call.py` | Calls every bet |
 | `call_preflop.py` | Calls before the flop, then checks or folds |
 | `call_when_big_blind.py` | Calls any bet when it is the big blind, and otherwise checks or folds |
+| `call_when_blind.py` | Calls any bet when it is the small blind or the big blind, and otherwise checks or folds |
 | `raise_by_small_blind.py` | Raises by the small blind every time |
 | `raise_by_big_blind_unless_raised.py` | Raises by the big blind whenever nobody has bet more than the big blind, and folds to anything bigger |
 | `raise_by_half_of_stack.py` | Raises by half of the chips it has left after calling, every time |
