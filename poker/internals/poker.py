@@ -14,6 +14,7 @@ import yaml
 
 from .engine import AI
 from .rules import Rules
+from .sandbox import IMAGE, Sandbox
 from .score import score as score_ai
 from .tournament import TABLE_SIZE, Tournament
 
@@ -21,8 +22,8 @@ from .tournament import TABLE_SIZE, Tournament
 STARTING_PATH = list(sys.path)  # The module search path from before any bot is loaded, for the windows to start with
 
 
-def load_ais(specs: list[str], least: int = 2) -> list[tuple[str, AI]]:
-    # Each spec is a path to a python file with a myAI function, optionally written as NAME=PATH
+def load_ais(specs: list[str], least: int = 2, taken: list[str] = ()) -> list[tuple[str, AI]]:
+    # Each spec is a path to a python file with a myAI function, optionally written as NAME=PATH. Names in taken are already used.
     ais = []
 
     for index, spec in enumerate(specs):
@@ -47,11 +48,11 @@ def load_ais(specs: list[str], least: int = 2) -> list[tuple[str, AI]]:
         if not callable(getattr(module, "myAI", None)):
             raise SystemExit(f"poker: {path} doesn't have a myAI function")
 
-        taken = [other for other, _ in ais]
+        used = [*taken, *(other for other, _ in ais)]
         base = name
         number = 2
 
-        while name in taken:
+        while name in used:
             name = f"{base} {number}"
             number += 1
 
@@ -70,9 +71,10 @@ class Team:
     commit: str
 
 
-def load_snapshots(folder: str) -> tuple[list[str], dict[str, Team]]:
+def load_snapshots(folder: str) -> tuple[list[tuple[str, Path]], dict[str, Team]]:
     # Reads the folder which the website's db/download-snapshots.ts makes: a manifest.csv, and a folder for each team's repo
-    # at the commit which was picked. Returns a NAME=PATH spec for each team's myAI.py, and which team each name is.
+    # at the commit which was picked. Returns each team's name and its myAI.py, and which team each name is.
+    # Nothing is loaded, as their code is only ever run in a container unless --no-sandbox says otherwise.
     folder = Path(folder)
     manifest = folder / "manifest.csv"
 
@@ -84,7 +86,7 @@ def load_snapshots(folder: str) -> tuple[list[str], dict[str, Team]]:
 
     # Teams are shown by who owns their repo, as many repos keep the template's name
     owners = [row["repo"].split("/")[0] for row in rows]
-    specs, teams = [], {}
+    bots, teams = [], {}
 
     for row, owner in zip(rows, owners):
         path = folder / row["folder"] / "myAI.py" if row["folder"] else None
@@ -98,10 +100,10 @@ def load_snapshots(folder: str) -> tuple[list[str], dict[str, Team]]:
             continue
 
         name = owner if owners.count(owner) == 1 else row["repo"]
-        specs.append(f"{name}={path}")
+        bots.append((name, path))
         teams[name] = Team(repo=row["repo"], commit=row["commit"])
 
-    return specs, teams
+    return bots, teams
 
 
 def write_results(path: str, tournament: Tournament, teams: dict[str, Team], seed: int | None):
@@ -239,21 +241,45 @@ def ending(tournament: Tournament) -> list[str]:
     return lines
 
 
-def load_players(args: argparse.Namespace) -> tuple[list[tuple[str, AI]], dict[str, Team]]:
-    specs, teams = load_snapshots(args.snapshots) if args.snapshots else ([], {})
-    ais = load_ais(specs + args.ais)
+def load_players(args: argparse.Namespace, rules: Rules) -> tuple[list[tuple[str, AI]], dict[str, Team], Sandbox | None]:
+    # The teams from --snapshots, each in a container of its own unless --no-sandbox is given, and any other AIs, which are
+    # the organiser's own and run here. Returns the players, which team each is, and the sandbox, to stop when it's over.
+    bots, teams = load_snapshots(args.snapshots) if args.snapshots else ([], {})
+    sandbox = None
+
+    if bots and not args.no_sandbox:
+        sandbox = Sandbox(image=args.image, timeout=rules.timeout, seed=args.seed, logs=Path(args.logs))
+        ais = sandbox.start([(name, path.parent, teams[name].repo) for name, path in bots])
+    else:
+        ais = load_ais([f"{name}={path}" for name, path in bots], least=0)
+
+    ais += load_ais(args.ais, least=0, taken=[name for name, _ in ais])
+
+    if len(ais) < 2:
+        if sandbox:
+            sandbox.stop()
+
+        raise SystemExit(f"poker: expected at least 2 AIs, but there were {len(ais)}")
 
     if args.snapshots:
         # Seats are drawn at random, as in a real tournament, and the same seed draws them the same way
         random.Random(args.seed).shuffle(ais)
 
-    return ais, teams
+    return ais, teams, sandbox
 
 
 def run(args: argparse.Namespace):
-    ais, teams = load_players(args)
     rules = load_rules(args)
+    ais, teams, sandbox = load_players(args, rules)
 
+    try:
+        watch(args, ais, teams, rules)
+    finally:
+        if sandbox:
+            sandbox.stop()
+
+
+def watch(args: argparse.Namespace, ais: list[tuple[str, AI]], teams: dict[str, Team], rules: Rules):
     from .render import CONTROLS  # Imported here so that poker test works without a screen
     from .window import Windows
 
@@ -358,8 +384,17 @@ def run(args: argparse.Namespace):
 
 
 def test(args: argparse.Namespace):
-    ais, _ = load_players(args)
     rules = load_rules(args)
+    ais, _, sandbox = load_players(args, rules)
+
+    try:
+        play_matches(args, ais, rules)
+    finally:
+        if sandbox:
+            sandbox.stop()
+
+
+def play_matches(args: argparse.Namespace, ais: list[tuple[str, AI]], rules: Rules):
     rng = random.Random(args.seed)
 
     chips = {name: 0 for name, _ in ais}
@@ -419,7 +454,10 @@ def main(argv: list[str] | None = None):
     commands = parser.add_subparsers(dest="command", required=True)
 
     snapshots = argparse.ArgumentParser(add_help=False)
-    snapshots.add_argument("--snapshots", metavar="FOLDER", help="also play every team's bot from a folder made by the website's db/download-snapshots.ts")
+    snapshots.add_argument("--snapshots", metavar="FOLDER", help="also play every team's bot from a folder made by the website's db/download-snapshots.ts, each in a Docker container of its own")
+    snapshots.add_argument("--image", default=IMAGE, help=f"the Docker image to run the teams' bots in ({IMAGE}, which the competitions repo's results/run.sh builds, if left out)")
+    snapshots.add_argument("--logs", default="bot-logs", metavar="FOLDER", help="where to keep what each team's bot prints (bot-logs if left out)")
+    snapshots.add_argument("--no-sandbox", action="store_true", help="run the teams' bots here instead of in containers. Their code can then do anything you can, so only use this for bots you trust")
 
     run_parser = commands.add_parser("run", parents=[seeded, snapshots], help="play a match and watch it, with a window for each table")
     run_parser.add_argument("ais", nargs="*", metavar="AI", help=ais_help)
