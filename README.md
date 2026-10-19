@@ -117,9 +117,9 @@ This opens a window and plays a match in it, showing everyone's cards, the bets 
 
 | Key | What it does |
 |---|---|
-| `SPACE` | Pause and resume |
-| `LEFT` / `RIGHT` | Step backwards and forwards |
-| `UP` / `DOWN` | Speed up and slow down |
+| `SPACE` | Pause and resume every table |
+| `LEFT` / `RIGHT` | Step backwards and forwards at this table, pausing every table |
+| `UP` / `DOWN` | Speed up and slow down every table |
 | `N` | Skip to the next hand |
 | `F` | Switch between a window and fullscreen |
 | `R` | Restart the match, with the same seats |

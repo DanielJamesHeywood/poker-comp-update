@@ -363,6 +363,9 @@ def watch(args: argparse.Namespace, ais: list[tuple[str, AI]], teams: dict[str, 
 
                 deal_to_waiting()
 
+            elif isinstance(message, tuple) and message[0] == "controls":
+                windows.share_controls(number, *message[1:])
+
             elif message == "restart":
                 tournament = new_tournament(args, ais, rules)
                 told = {}
