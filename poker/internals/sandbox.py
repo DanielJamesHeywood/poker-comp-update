@@ -5,8 +5,10 @@ import json
 import os
 import random
 import select
+import shutil
 import subprocess
 import sys
+import threading
 import time
 import uuid
 from pathlib import Path
@@ -29,12 +31,22 @@ from ..player import Blind, MyPlayer, Player
 IMAGE = "wai-results"
 START_TIMEOUT = 120  # Seconds for every container to start and load its bot
 LONGEST_MESSAGE = 1 << 16
+LONGEST_LOG = 1 << 20  # A bot's log is cut off after this many bytes, so that one which prints forever can't fill the disk
 ENGINE = Path(__file__).resolve().parent.parent  # This poker package, which is mounted into each container read-only
 
 
 class BotProblem(Exception):
     # Raised in place of a sandboxed bot's action when it went wrong, with the reason worded as it would be for a bot run directly
     pass
+
+
+def readable(text) -> str:
+    # A reason sent by a bot's container, made safe to show: it could have been written by the bot itself, so anything which
+    # isn't plain text, such as the codes a terminal acts on, is replaced
+    if not isinstance(text, str):
+        return "went wrong"
+
+    return "".join(character if character.isprintable() else "?" for character in text[:200])
 
 
 # ---- The messages
@@ -92,7 +104,7 @@ def action_to_json(action: Action) -> dict:
 
 def action_from_json(data) -> Action:
     # Only an action exactly like one a bot could have made is accepted
-    if not isinstance(data, dict) or data.get("kind") not in KINDS:
+    if not isinstance(data, dict) or not isinstance(data.get("kind"), str) or data["kind"] not in KINDS:
         raise BotProblem("sent something which isn't an action")
 
     amount = data.get("amount")
@@ -118,8 +130,9 @@ class SandboxedBot:
         self.requests = 0
         self.failure: str | None = None  # Why it can't play any more, once that is known
 
-        with log.open("wb") as file:
-            self.process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=file, bufsize=0)
+        self.process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=0)
+        self.logger = threading.Thread(target=copy_log, args=(self.process.stderr, log), daemon=True)
+        self.logger.start()
 
     def __call__(self, state: GameState) -> Action:
         if self.failure:
@@ -139,14 +152,14 @@ class SandboxedBot:
         while True:
             message = self.read(deadline)
 
-            if message is None:
+            if message is None or deadline is not None and time.monotonic() > deadline:
                 raise BotProblem(f"took longer than {self.timeout:g}s")
 
             if message.get("id") != request:
-                continue  # The answer to an earlier turn, which came too late
+                continue  # The answer to an earlier turn, which came too late, or something the bot wrote itself
 
             if "problem" in message:
-                raise BotProblem(str(message["problem"])[:200])
+                raise BotProblem(readable(message["problem"]))
 
             return action_from_json(message.get("action"))
 
@@ -177,7 +190,7 @@ class SandboxedBot:
 
         try:
             message = json.loads(line)
-        except ValueError:
+        except (ValueError, RecursionError):
             return {}  # Something the bot wrote itself, which is ignored
 
         return message if isinstance(message, dict) else {}
@@ -198,7 +211,7 @@ class SandboxedBot:
 
                 if message.get("id") == 0:
                     if "problem" in message:
-                        self.failure = str(message["problem"])[:200]
+                        self.failure = readable(message["problem"])
                     return
 
         except BotProblem:
@@ -209,6 +222,22 @@ class SandboxedBot:
             self.process.stdin.close()  # The bot's container stops by itself once there are no more turns
         except OSError:
             pass
+
+
+def copy_log(source, path: Path):
+    # Writes what a bot's container prints to its log, up to LONGEST_LOG bytes, then throws the rest away
+    written = 0
+
+    with path.open("wb") as file:
+        while chunk := source.read(1 << 16):
+            if written < LONGEST_LOG:
+                file.write(chunk[:LONGEST_LOG - written])
+                written += len(chunk)
+
+                if written >= LONGEST_LOG:
+                    file.write(b"\n[poker: the rest of this log was cut off]\n")
+
+                file.flush()
 
 
 class Sandbox:
@@ -224,6 +253,9 @@ class Sandbox:
 
     def start(self, teams: list[tuple[str, Path, str]]) -> list[tuple[str, SandboxedBot]]:
         # Each team is its name, its snapshot's folder, and its repo, which gives it its own random seed
+        if not shutil.which(self.docker):
+            raise SystemExit("poker: the teams' bots run in Docker containers, but Docker isn't installed. Install Docker Desktop, start it, and try again")
+
         self.logs.mkdir(parents=True, exist_ok=True)
         print(f"Starting {len(teams)} bots, each in a container of its own...", file=sys.stderr)
 
@@ -255,7 +287,7 @@ class Sandbox:
 
         return [
             self.docker, "run", "--rm", "--interactive", "--pull", "never", "--name", container,
-            "--network", "none", "--memory", "512m", "--cpus", "1", "--pids-limit", "64",
+            "--network", "none", "--memory", "512m", "--memory-swap", "512m", "--cpus", "1", "--pids-limit", "64",
             "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
             "--read-only", "--tmpfs", "/tmp:size=64m,mode=1777",
             "--env", "HOME=/tmp", "--env", "PYTHONPATH=/official", "--env", "PYTHONDONTWRITEBYTECODE=1", "--env", "PYTHONHASHSEED=0",
@@ -285,6 +317,9 @@ class Sandbox:
         for bot in self.bots:
             if bot.process.poll() is None:
                 bot.process.kill()
+
+        for bot in self.bots:
+            bot.logger.join(timeout=1)  # So that the logs are complete
 
 
 # ---- The container's side

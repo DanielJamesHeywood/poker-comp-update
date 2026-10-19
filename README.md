@@ -212,6 +212,7 @@ After that, the pattern carries on ten times bigger.
 
 - Your AI has **1 second** for each action.
 - If it raises an exception, takes too long, doesn't return an `Action`, or checks when there is a bet to call, it checks if it can and folds if it can't. That is the same as `defaultAI` and `examples/default.py`, and it counts as a bad action.
+- In the weekly tournament, every bot runs on its own, apart from the game, with no internet access, 512 MB of memory and one CPU. It can read the files in its repo but not change them, and what it prints isn't shown. A bot which can't be loaded checks or folds every time.
 
 ### Finishing Places
 
@@ -298,11 +299,15 @@ Each week:
    ```bash
    STUDENT_FILES="myAI.py" ./results/run.sh ~/poker-round-1 ../poker-comp-update
    ```
-4. **Play the tournament.** In this folder, with the round's seed so it can be played again the same way:
+4. **Play the tournament.** In this folder, with Docker running, first try a few hands, which should say that every bot is ready:
+   ```bash
+   poker run --snapshots ~/poker-round-1 --hands 5
+   ```
+   Then play it, with the round's seed so it can be played again the same way:
    ```bash
    poker run --snapshots ~/poker-round-1 --seed 1 --results round-1.json
    ```
-   Every team's bot runs in a Docker container of its own, with no network and no access to your files, and only the game itself runs on your computer. What each bot prints is kept in `bot-logs`.
+   Every team's bot runs in a Docker container of its own, with no network and no access to your files, and only the game itself runs on your computer. What each bot prints is kept in `bot-logs`, up to 1 MB each. Never add `--no-sandbox` for the teams' bots, as it runs their code on your computer itself.
 5. **Record the results.** In the website folder, check with a dry run first, then run it again without `DRY_RUN=1`:
    ```bash
    PROJECT_ID=poker ROUND=1 RESULTS=../poker-comp-update/round-1.json DRY_RUN=1 \
