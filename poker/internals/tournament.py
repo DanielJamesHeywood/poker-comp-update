@@ -74,6 +74,11 @@ class Tournament:
             table_seed = seed if seed is None or index == 0 else f"{seed}/{index}"
             self.tables.append(Table(index + 1, Match(ais=ais[index::count], rules=self.rules, seed=table_seed)))
 
+        for table in self.tables:
+            # With more than one table, every table shares the same blinds. They all go up together, between hands, as soon as
+            # the rules say they should at any table. A single table goes up by itself, exactly as a Match does.
+            table.match.shared_blinds = count > 1
+
         self.entrants = len(ais)
         self.exits: list[Exit] = []
         self.recorded: set[Seat] = set()
@@ -103,8 +108,26 @@ class Tournament:
 
         if len({other.hands_played() for other in self.tables if other.in_play()}) <= 1:
             self.rebalance()
+            self.raise_blinds()
 
         return hand
+
+    def raise_blinds(self):
+        # Between rounds, every table goes up a level together if any table is due to. Tables with hands left are the ones that count.
+        tables = [table for table in self.tables if table.in_play() and table.match.shared_blinds]
+
+        if not any(table.match.blinds_due() for table in tables):
+            return
+
+        level = max(table.match.blind_level for table in tables) + 1
+
+        for table in tables:
+            match = table.match
+
+            while match.blind_level < level:
+                match.raise_blinds()
+
+            match.notes.append(f"the blinds go up to {match.small_blind}/{match.big_blind} at every table")
 
     def is_over(self) -> bool:
         return len(self.players()) < 2 or not any(table.can_deal() for table in self.tables)
