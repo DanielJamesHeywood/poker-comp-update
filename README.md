@@ -14,13 +14,11 @@ Hello all and welcome to the second Warwick AI programming competition!
 
 Don't worry if you're new to programming or AI, there's something here for everyone! For beginners, check out the WAI + Code Soc + UWCS Python course or ask us anything at our weekly code nights. See our [website](https://warwick.ai) for details.
 
-> [!CAUTION]
-> ## ⛔ Only ever change `myAI.py`
-> **Your whole bot must be in `myAI.py`. Do not edit, add, rename, move or delete any other file in your repository.**
+> [!IMPORTANT]
+> ### Please only change `myAI.py`
+> Your whole bot should be in `myAI.py`, and please don't edit, add, rename, move or delete any other file in your repository. That includes the `poker` folder, the `examples` folder, `pyproject.toml`, `README.md` and the `.github` folder. Every bot is played with the same copy of these files, so changing them can stop yours from working.
 >
-> That includes everything in the `poker` folder, the `examples` folder, `pyproject.toml`, `README.md` and the `.github` folder. Your bot is played against everyone else's with the same copy of every other file, so changing them can break your bot.
->
-> If you have an idea for the game itself, tell us instead (see [Contributing](#-contributing)).
+> If you really do need to change another file, email us and ask (see [Need Help?](#need-help)). We're happy to look at it. And if you have an idea for the game itself, we'd love to hear it (see [Contributing](#-contributing)).
 
 ### 🎯 Competition Highlights
 
@@ -236,7 +234,7 @@ Most of the score is for building a stack. A bot which folds every hand can outl
 ## 🧠 Writing Your AI
 
 ### The Basics
-Your submission is the `myAI` function in `myAI.py`, and **`myAI.py` is the only file you may change**. Everything your bot needs, including any helper functions, must be written in `myAI.py`:
+Your submission is the `myAI` function in `myAI.py`, and **`myAI.py` should be the only file you change**. Please put everything your bot needs, including any helper functions, in `myAI.py`. If you need to change anything else, email us and ask first:
 
 ```python
 def myAI(state: GameState) -> Action:
@@ -268,8 +266,8 @@ There's all sorts of ways to write an AI for this competition:
 
 To submit your AI, simply push a commit to your repository. 
 
-> [!CAUTION]
-> **Your commits must only change `myAI.py`.** Before you push, check that no other file has changed, for example with `git status`. If anything other than `myAI.py` is listed, undo the change with `git restore <file>`, or delete the file if you added it.
+> [!IMPORTANT]
+> **Your commits should only change `myAI.py`,** unless we've said otherwise. Before you push, check that no other file has changed, for example with `git status`. If anything other than `myAI.py` is listed, undo the change with `git restore <file>`, or delete the file if you added it.
 
 Every week at code night, your latest bot will compete against all other submitted bots. Points will be awarded, which you will be able to see on our website! <https://warwick.ai>
 
@@ -277,8 +275,8 @@ Every week at code night, your latest bot will compete against all other submitt
 
 ## Important!!!
 
-> [!CAUTION]
-> **Only ever change `myAI.py`.** Don't edit, add, rename, move or delete any other file, not even to fix something. Put all of your code, including helper functions, in `myAI.py`.
+> [!IMPORTANT]
+> **Please only change `myAI.py`,** and put all of your code, including helper functions, in it. If you really need to change another file, email us and ask.
 
 Other than this, have fun and see you at code nights! 
 
@@ -287,7 +285,7 @@ Other than this, have fun and see you at code nights!
 ### Need Help?
 - Weekly code nights
 - Visit [warwick.ai](https://warwick.ai)
-- Message us with questions
+- Message us with questions, including if you need to change a file other than `myAI.py`
 
 ### Credits
 The card and chip art is from the [(Pixel) Poker Cards](https://ivoryred.itch.io/pixel-poker-cards) pack by IvoryRed, used under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
