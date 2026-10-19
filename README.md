@@ -155,19 +155,19 @@ These can be constructed using `Action.check()`, `Action.call()`, `Action.raise_
 
 The game is no-limit Texas hold'em. Everyone starts a match with the same number of chips, and a player who runs out is out of the match.
 
-The structure is a typical tournament's. Everyone starts with 10,000 chips, which is 100 big blinds. The blinds go up a level every 15 hands, and each level is between 25% and 50% more than the last: 50/100, 75/150, 100/200, 150/300, 200/400, 250/500, 375/750, 500/1000 and so on. From the fourth level, everyone also pays an ante of an eighth of the big blind every hand. With more than one table, every table is on the same level.
+The structure is a typical tournament's. Everyone starts with 200 chips, which is 100 big blinds. The blinds go up a level every 15 hands: 1/2, 2/4, 3/6, 5/10, 10/20, 20/40, 30/60, 50/100 and so on. From the fourth level, everyone also pays an ante of about an eighth of the big blind every hand. With more than one table, every table is on the same level.
 
-The game carries on until one player has every chip. With 28 players, a watched tournament takes about 55 minutes at 1x speed.
+The game carries on until one player has every chip.
 
 All of these numbers are set in `poker/internals/rules.yaml`.
 
 When the game ends, everyone is given league points:
 
-- 10 for taking part, so everyone scores
+- 1 for taking part, so everyone scores
 - 1 for every player they finished above
 - 10 × players ÷ place² for finishing near the top
 
-With 28 players, the winner gets 317, second 106, third 66, fourth 52, tenth 31 and last 10. The top places are worth the most because a bot which folds every hand can outlast bots which gamble with each other, but it can never win. So the best way to score is to play to win, as in a real tournament.
+With 28 players, the winner gets 308, second 97, third 57, fourth 43, tenth 22 and last 1. The top places are worth the most because a bot which folds every hand can outlast bots which gamble with each other, but it can never win. So the best way to score is to play to win, as in a real tournament.
 
 - `chips_bet` is how many chips a player has put in during the current betting round, so the amount you need to call is the biggest `chips_bet` at the table minus your own. `chips_in_pot` is everything bet in the hand so far.
 - `small_blind`, `big_blind` and `ante` are the sizes for the current hand, so your AI can size its bets as the blinds go up.

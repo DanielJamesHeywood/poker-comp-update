@@ -11,14 +11,14 @@ TABLE_SIZE = 8  # The most players who can sit at one table
 
 
 def points(place: int, entrants: int) -> int:
-    # League points, for keeping a table of results from week to week: 10, a point for every player finished above,
+    # League points, for keeping a table of results from week to week: 1 for taking part, a point for every player finished above,
     # and 10 × entrants ÷ place² for finishing near the top.
     #
-    # Everyone gets at least 10, and every place up is worth more than the one below it. The top places are worth by far the
+    # Everyone gets at least 1, and every place up is worth more than the one below it. The top places are worth by far the
     # most, because a bot which folds every hand can outlast bots which gamble with each other, but it can never win.
     # So the most points go to bots which play to win, as in a real tournament.
     # A week with more players gives more points, as it is harder to finish high in.
-    return round(10 + (entrants - place) + 10 * entrants / place ** 2)
+    return round(1 + (entrants - place) + 10 * entrants / place ** 2)
 
 
 @dataclass
