@@ -113,7 +113,7 @@ The bots in the `examples` folder each follow one simple rule. A rule never chan
 poker run myAI.py examples/call.py examples/default.py
 ```
 
-This opens a window and plays a match in it, showing everyone's cards, the bets and what each AI does. The window can be resized, and adding `--fullscreen` starts it filling the screen.
+This opens a window and plays a match in it, showing everyone's cards, the bets and what each AI does. The window can be resized, and adding `--fullscreen` starts it filling the screen. A name too long for its space scrolls back and forth, so all of it can be read.
 
 | Key | What it does |
 |---|---|
@@ -122,7 +122,7 @@ This opens a window and plays a match in it, showing everyone's cards, the bets 
 | `UP` / `DOWN` | Speed up and slow down |
 | `N` | Skip to the next hand |
 | `F` | Switch between a window and fullscreen |
-| `R` | Restart the match |
+| `R` | Restart the match, with the same seats |
 | `ESC` | Quit |
 
 #### ⚡ Run headless tests
@@ -273,7 +273,28 @@ The game is played by the [Tournament Rules](#-tournament-rules) above. A few th
 
 - `chips_bet` is how many chips a player has put in during the current betting round, so the amount you need to call is the biggest `chips_bet` at the table minus your own. `chips_in_pot` is everything bet in the hand so far.
 - `small_blind`, `big_blind` and `ante` are the sizes for the current hand, so your AI can size its bets as the blinds go up.
-- Every player has an `id`, which stays the same for the whole tournament, even when they move to another table. So your AI can tell players apart, and learn how each one plays, by keeping notes against their `id`. It's a random number, different in every tournament, so it doesn't say who they are. Your own is `state.my_player.id`.
+
+### Telling Players Apart
+
+Every player in `state.players` has an `id`, which is a random number. Your own is `state.my_player.id`. A new `Player` is made for every action, so the `id` is the way to tell who is who, and to learn how each player plays:
+
+```python
+most_chips = {}  # The most chips each player has been seen with, by their id
+
+def myAI(state: GameState) -> Action:
+    for player in state.players:
+        most_chips[player.id] = max(most_chips.get(player.id, 0), player.chips_in_stack)
+
+    return defaultAI(state)
+```
+
+- **One tournament:** a player's `id` lasts for one tournament. It stays the same from hand to hand, and when they move to another table.
+  - **The weekly tournament:** this is one tournament, so every player keeps their `id` for the whole evening.
+  - **`poker run`:** each match is one tournament. Restarting it with `R` starts another, with new ids, unless you gave a `--seed`, which draws the same ids again.
+  - **`poker test`:** every match is a new tournament, with new ids.
+- **It doesn't say who anyone is.** Every tournament has different ids, so a player can't be recognised from one week to the next.
+- **Your AI's own variables carry on between matches,** such as a match restarted with `R` or the matches of `poker test`, but an `id` from an earlier match won't come up again.
+- **Who is listed:** players who have folded are still in `state.players`. Players who are out of the tournament, or sitting at another table, aren't.
 
 ### Some Inspiration
 
