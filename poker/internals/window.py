@@ -13,6 +13,9 @@ import queue
 #   "closed"   the window has closed, because ESC was pressed, it was closed, or it closed itself after its table was broken up
 # The generation goes up every time the tournament restarts, so that messages sent before a restart can be told apart.
 #
+# The main process can also be told
+#   "lost"     a window closed itself just as the tournament restarted, so it needs opening again
+#
 # The main process sends a window one of
 #   ("hand", hand)                              a hand to show
 #   ("finish", title, lines, hints, close_after) there are no more hands to come, so show this once the last one is over
@@ -21,6 +24,13 @@ import queue
 
 
 def show_table(number: int, count: int, players: list[str], total_hands: int, fullscreen: bool, generation: int, commands: multiprocessing.Queue, events: multiprocessing.Queue):
+    try:
+        run_window(number, count, players, total_hands, fullscreen, generation, commands, events)
+    except KeyboardInterrupt:
+        pass  # Ctrl+C in the terminal reaches every window as well as the main process, which deals with it
+
+
+def run_window(number: int, count: int, players: list[str], total_hands: int, fullscreen: bool, generation: int, commands: multiprocessing.Queue, events: multiprocessing.Queue):
     from .render import PokerRenderer
 
     renderer = PokerRenderer(players=players, total_hands=total_hands, fullscreen=fullscreen, title="WAI Poker" if count == 1 else f"WAI Poker - Table {number}", tile=(number - 1, count))
@@ -77,25 +87,39 @@ class Windows:
         self.processes: dict[int, multiprocessing.Process] = {}
         self.commands: dict[int, multiprocessing.Queue] = {}
         self.open: set[int] = set()
+        self.reset_sent: set[int] = set()  # The windows told to start again at the latest restart
+        self.count = 0
         self.generation = 0
 
     def start(self, tables: dict[int, list[str]]):
         # Opens a window for every table, or starts again in the windows which are still open
         self.generation += 1
+        self.count = len(tables)
+        self.reset_sent = set()
 
         for number, players in tables.items():
             if number in self.open and self.processes[number].is_alive():
                 self.send(number, "reset", self.generation, players)
-                continue
+                self.reset_sent.add(number)
+            else:
+                self.open_window(number, players)
 
-            if number in self.processes:
-                self.processes[number].join(timeout=1)
+    def open_window(self, number: int, players: list[str]):
+        if number in self.processes:
+            self.processes[number].join(timeout=1)
+            self.forget_queue(self.commands[number])
 
-            self.commands[number] = self.context.Queue()
-            process = self.context.Process(target=show_table, args=(number, len(tables), players, self.total_hands, self.fullscreen, self.generation, self.commands[number], self.events), daemon=True)
-            process.start()
-            self.processes[number] = process
-            self.open.add(number)
+        self.commands[number] = self.context.Queue()
+        process = self.context.Process(target=show_table, args=(number, self.count, players, self.total_hands, self.fullscreen, self.generation, self.commands[number], self.events), daemon=True)
+        process.start()
+        self.processes[number] = process
+        self.open.add(number)
+
+    @staticmethod
+    def forget_queue(commands: multiprocessing.Queue):
+        # Anything still waiting in the queue of a window which has gone is thrown away, rather than holding up the exit
+        commands.cancel_join_thread()
+        commands.close()
 
     def send(self, number: int, *command):
         if number in self.open:
@@ -103,11 +127,29 @@ class Windows:
 
     def next_event(self) -> tuple[int, str] | None:
         # Waits for a window to say something. Anything sent before the latest restart is dropped, apart from a window closing.
-        generation, number, message = self.events.get()
+        while True:
+            try:
+                generation, number, message = self.events.get(timeout=0.5)
+                break
+
+            except queue.Empty:
+                # A window which crashed before it could say so, such as when raylib can't open it, counts as closed
+                for number in sorted(self.open):
+                    if not self.processes[number].is_alive():
+                        self.open.discard(number)
+                        return number, "closed"
 
         if message == "closed":
+            if number not in self.open:
+                return None
+
             self.open.discard(number)
-            return (number, message) if generation == self.generation else None
+
+            if generation == self.generation:
+                return number, message
+
+            # It closed itself before it heard about the restart, so the table it should now be showing has no window
+            return (number, "lost") if number in self.reset_sent else None
 
         if generation != self.generation or number not in self.open:
             return None
@@ -123,3 +165,6 @@ class Windows:
 
             if process.is_alive():
                 process.terminate()
+
+        for commands in self.commands.values():
+            self.forget_queue(commands)

@@ -21,6 +21,14 @@ class Result:
     hand: int | None = None
 
 
+@dataclass
+class Exit:
+    seat: Seat
+    table: int
+    hand: int
+    started_with: int  # Chips at the start of the hand they went out on, which decides between players who went out on the same hand
+
+
 class Table:
     def __init__(self, number: int, match: Match):
         self.number = number  # Counting from 1
@@ -47,6 +55,10 @@ class Tournament:
     # One or more tables of poker. Players are shared out between as few tables as they fit at, and as tables empty
     # the smallest is broken up and its players sent to the others. The tournament is over once one player has every chip,
     # or once no table can deal another hand, because each table has played the most hands which the rules allow.
+    #
+    # The tables play hand for hand: no table deals its next hand until every other table has finished the one before, and
+    # players are only moved once they all have. So hand 5 at one table is played alongside hand 5 at every other, players
+    # who go out on the same hand at different tables can be placed fairly, and no table is broken up before the rest have dealt.
     def __init__(self, *, ais: list[tuple[str, AI]], rules: Rules | None = None, seed: int | None = None, table_size: int = TABLE_SIZE):
         if len(ais) < 2:
             raise ValueError(f"Expected at least 2 AIs, but there were {len(ais)}")
@@ -63,24 +75,35 @@ class Tournament:
             self.tables.append(Table(index + 1, Match(ais=ais[index::count], rules=self.rules, seed=table_seed)))
 
         self.entrants = len(ais)
-        self.out: list[Result] = []  # In the order players went out
+        self.exits: list[Exit] = []
         self.recorded: set[Seat] = set()
 
     # ---- Playing
 
     def play(self):
-        # Plays the whole tournament without watching it, keeping the tables level by always dealing at the one which is furthest behind
+        # Plays the whole tournament without watching it
         while not self.is_over():
-            table = min((table for table in self.tables if table.can_deal()), key=lambda table: (table.hands_played(), table.number))
+            table = next(table for table in self.tables if self.may_deal(table))
             self.play_hand(table)
 
+    def may_deal(self, table: Table) -> bool:
+        # Whether a table can deal its next hand now, rather than waiting for the other tables to catch up with it
+        dealing = [other for other in self.tables if other.can_deal()]
+        return table in dealing and table.hands_played() == min(other.hands_played() for other in dealing)
+
     def play_hand(self, table: Table) -> dict:
-        # Plays the next hand at a table, then moves players between tables if they need it. Returns the hand that was played.
+        # Plays the next hand at a table, and moves players between tables once every table has played it. Returns the hand that was played.
+        if not self.may_deal(table):
+            raise ValueError(f"Table {table.number} can't deal until the other tables have caught up with it")
+
         match = table.match
         match.play_hand(table.hands_played() + 1)
         hand = match.hands[-1]
         self.record_exits(table, hand)
-        self.rebalance()
+
+        if len({other.hands_played() for other in self.tables if other.in_play()}) <= 1:
+            self.rebalance()
+
         return hand
 
     def is_over(self) -> bool:
@@ -88,6 +111,9 @@ class Tournament:
 
     def players(self) -> list[Seat]:
         return [seat for table in self.tables for seat in table.players()]
+
+    def table_of(self, seat: Seat) -> Table:
+        return next(table for table in self.tables if seat in table.match.seats)
 
     def open_tables(self) -> list[Table]:
         return [table for table in self.tables if not table.closed]
@@ -98,26 +124,29 @@ class Tournament:
     # ---- Going out
 
     def record_exits(self, table: Table, hand: dict):
-        # Everyone who went out in this hand takes the places just below the players still in. Of those, whoever started
-        # the hand with more chips finishes higher, as is usual in a tournament.
-        busted = [seat for seat in table.match.seats if seat.stack == 0 and seat not in self.recorded]
-
-        if not busted:
-            return
-
         started = dict(zip(hand["players"], hand["frames"][0]["stacks"]))
-        busted.sort(key=lambda seat: started.get(seat.name, 0), reverse=True)
-        remaining = len(self.players())
 
-        for offset, seat in reversed(list(enumerate(busted))):  # The lowest place is listed first, as if they went out first
-            self.recorded.add(seat)
-            self.out.append(Result(place=remaining + 1 + offset, name=seat.name, stack=0, errors=seat.errors, table=table.number, hand=hand["number"]))
+        for seat in table.match.seats:
+            if seat.stack == 0 and seat not in self.recorded:
+                self.recorded.add(seat)
+                self.exits.append(Exit(seat=seat, table=table.number, hand=hand["number"], started_with=started.get(seat.name, 0)))
 
     def standings(self) -> list[Result]:
-        # Players still in come first, most chips first, then everyone who went out, the last to go out first
+        # Players still in come first, most chips first. Then everyone who went out, the last to go out first. Of players who went
+        # out on the same hand, at any table, whoever started that hand with more chips finishes higher, as is usual in a tournament.
         still_in = sorted(self.players(), key=lambda seat: seat.stack, reverse=True)
-        results = [Result(place=place, name=seat.name, stack=seat.stack, errors=seat.errors) for place, seat in enumerate(still_in, start=1)]
-        return results + sorted(self.out, key=lambda result: result.place)
+        gone = sorted(self.exits, key=lambda exit: (exit.hand, exit.started_with), reverse=True)
+        results = [Result(place=0, name=seat.name, stack=seat.stack, errors=seat.errors) for seat in still_in]
+        results += [Result(place=0, name=exit.seat.name, stack=0, errors=exit.seat.errors, table=exit.table, hand=exit.hand) for exit in gone]
+
+        for place, result in enumerate(results, start=1):
+            result.place = place
+
+        return results
+
+    def out(self) -> list[Result]:
+        # Everyone who has gone out, in the order they went out, with the places they finished in
+        return [result for result in reversed(self.standings()) if result.hand is not None]
 
     # ---- Moving players
 

@@ -82,11 +82,11 @@ Please note, command line tools will not work from a github codespace, instead t
 
 ## 🎯 Running the Game
 
-Installing the project gives you a `poker` command, which plays AIs against each other. An AI is any python file with a `myAI` function, and there are a few simple ones to play against in the `bots` folder. Between 2 and 8 AIs can play.
+Installing the project gives you a `poker` command, which plays AIs against each other. An AI is any python file with a `myAI` function, and there are a few simple ones to play against in the `examples` folder. At least 2 AIs can play. More than 8 are split between tables like a tournament, and `poker run` opens a window for each table. As players go out, the smallest table is broken up and its players are moved to the others, and the tables are kept within one player of each other. The tables play hand for hand, so no table gets ahead of the others, and `--hands` is how many hands each table plays. When it ends, poker prints where everyone finished and the hand (and table) on which each player went out.
 
 #### 👀 Watch a match
 ```bash
-poker run myAI.py bots/caller.py bots/tight.py
+poker run myAI.py examples/just_call.py examples/default.py
 ```
 
 This opens a window and plays a match in it, showing everyone's cards, the bets and what each AI does. The window can be resized, and adding `--fullscreen` starts it filling the screen.
@@ -103,30 +103,37 @@ This opens a window and plays a match in it, showing everyone's cards, the bets 
 
 #### ⚡ Run headless tests
 ```bash
-poker test 100 myAI.py bots/caller.py bots/chaos.py bots/tight.py
+poker test 100 myAI.py examples/just_call.py examples/just_raise_by_one.py examples/default.py
 ```
 
 This plays 100 matches without showing them, and prints how each AI did.
 
 #### 🎲 Deterministic testing
 ```bash
-poker run myAI.py bots/chaos.py --seed 123
-poker test 100 myAI.py bots/chaos.py --seed 69
+poker run myAI.py examples/just_raise_by_one.py --seed 123
+poker test 100 myAI.py examples/just_raise_by_one.py --seed 69
 ```
 
 #### 🆚 Comparing versions of your AI
 ```bash
-poker run new=myAI.py old=old/myAI.py bots/tight.py
+poker run new=myAI.py old=old/myAI.py examples/default.py
 ```
 
 Writing `NAME=PATH` chooses the name an AI is shown with. Run `poker run --help` to see the other options, such as `--hands`, `--stack` and `--blinds`.
 
-#### 📜 Trying different rules
+#### 🏅 Checking your score
 ```bash
-poker run myAI.py bots/tight.py --rules my_rules.yaml
+poker score
 ```
 
-The rules of a match, such as how many chips everyone starts with and how quickly the blinds go up, are in `poker/rules.yaml`. To try different ones, copy that file, change the copy, and pass it with `--rules`. Your copy only needs the lines which are different.
+This scores `myAI.py` the same way as when you push: it checks your AI returns an action on 1000 sample states, then plays it heads-up against a bot which plays at random. The score is printed and written to `score.txt`.
+
+#### 📜 Trying different rules
+```bash
+poker run myAI.py examples/default.py --rules my_rules.yaml
+```
+
+The rules of a match, such as how many chips everyone starts with and how quickly the blinds go up, are in `poker/internals/rules.yaml`. To try different ones, copy that file, change the copy, and pass it with `--rules`. Your copy only needs the lines which are different.
 
 ---
 
@@ -150,7 +157,7 @@ The game is no-limit Texas hold'em. Everyone starts a match with the same number
 
 As in a tournament, the blinds go up as the match goes on. They go up a level every 3 orbits, which is 3 hands for each player still in, and each level is between 25% and 50% more than the last: 10/20, 15/30, 20/40, 30/60, 40/80, 50/100, 75/150, 100/200 and so on.
 
-All of these numbers are set in `poker/rules.yaml`, along with rules which are turned off to begin with, like antes.
+All of these numbers are set in `poker/internals/rules.yaml`, along with rules which are turned off to begin with, like antes.
 
 - `chips_bet` is how many chips a player has put in during the current betting round, so the amount you need to call is the biggest `chips_bet` at the table minus your own. `chips_in_pot` is everything bet in the hand so far.
 - `small_blind`, `big_blind` and `ante` are the sizes for the current hand, so your AI can size its bets as the blinds go up.

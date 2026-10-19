@@ -13,7 +13,7 @@ from .internals.rules import Rules
 from .internals.tournament import TABLE_SIZE, Tournament
 
 
-def load_ais(specs: list[str]) -> list[tuple[str, AI]]:
+def load_ais(specs: list[str], least: int = 2) -> list[tuple[str, AI]]:
     # Each spec is a path to a python file with a myAI function, optionally written as NAME=PATH
     ais = []
 
@@ -49,8 +49,8 @@ def load_ais(specs: list[str]) -> list[tuple[str, AI]]:
 
         ais.append((name, module.myAI))
 
-    if len(ais) < 2:
-        raise SystemExit(f"poker: expected at least 2 AIs, but there were {len(ais)}")
+    if len(ais) < least:
+        raise SystemExit(f"poker: expected at least {least} AIs, but there were {len(ais)}")
 
     return ais
 
@@ -123,11 +123,13 @@ def print_standings(tournament: Tournament):
 
         print(f"{result.place:>2}. {result.name:<20} {result.stack:>8}" + (f"  ({', '.join(notes)})" if notes else ""))
 
-    if tournament.out:
+    out = tournament.out()
+
+    if out:
         print()
         print("Went out")
 
-        for number, result in enumerate(tournament.out, start=1):
+        for number, result in enumerate(out, start=1):
             where = f"hand {result.hand}" + (f" at table {result.table}" if tables > 1 else "")
             print(f"{number:>2}. {result.name:<20} {where:<22} finished {ordinal(result.place)}")
 
@@ -190,7 +192,30 @@ def run(args: argparse.Namespace):
             else:
                 windows.send(table.number, "finish", "TABLE FINISHED", [f"All {rules.hands} hands have been played here", "Waiting for the other tables"], True, None)
 
-    windows.start({table.number: [seat.name for seat in table.match.seats] for table in tournament.tables})
+    def seating() -> dict[int, list[str]]:
+        return {table.number: [seat.name for seat in table.match.seats] for table in tournament.tables}
+
+    windows.start(seating())
+    waiting: list[int] = []  # Tables whose windows are ready for their next hand, in the order they asked
+
+    def deal_to_waiting():
+        # The tables play hand for hand, so a table can be ready before it may deal. Every hand played may let another table go.
+        dealt = True
+
+        while dealt:
+            dealt = False
+
+            for number in list(waiting):
+                table = tournament.tables[number - 1]
+
+                if tournament.is_over() or not table.can_deal():
+                    waiting.remove(number)  # It has nothing more to play, and tell_windows says why
+
+                elif tournament.may_deal(table):
+                    waiting.remove(number)
+                    windows.send(number, "hand", tournament.play_hand(table))
+                    tell_windows()
+                    dealt = True
 
     try:
         # Each window asks for its next hand once it has shown the last one, and the hand is played just before it is sent.
@@ -202,19 +227,27 @@ def run(args: argparse.Namespace):
                 continue
 
             number, message = event
-            table = tournament.tables[number - 1]
 
-            if message == "need" and table.can_deal() and not tournament.is_over():
-                windows.send(number, "hand", tournament.play_hand(table))
-                tell_windows()
+            if message == "need":
+                if number not in waiting:
+                    waiting.append(number)
+
+                deal_to_waiting()
 
             elif message == "restart":
                 tournament = new_tournament(args, ais, rules)
                 told = {}
-                windows.start({table.number: [seat.name for seat in table.match.seats] for table in tournament.tables})
+                waiting = []
+                windows.start(seating())
+
+            elif message == "lost":
+                windows.open_window(number, seating()[number])
 
             elif message == "closed" and not told.get(number) == "closed":
                 break  # Closing the window of a table which is still playing ends everything, as ESC always has
+
+    except KeyboardInterrupt:
+        print()  # Ctrl+C stops the windows, and the results so far are still printed
 
     finally:
         windows.close()
@@ -260,6 +293,14 @@ def test(args: argparse.Namespace):
         print(f"{name:<{width}}  {wins[name] / args.matches:>6.1%}  {chips[name] / args.matches:>9.1f}  {places[name] / args.matches:>9.2f}  {errors[name]:>11}")
 
 
+def score(args: argparse.Namespace):
+    from .internals.score import score as score_ai
+
+    (name, ai), = load_ais([args.ai], least=1)
+    rules = load_rules(args)
+    score_ai(name, ai, rules=rules, output=Path(args.output), states=args.states, matches=args.matches)
+
+
 def main(argv: list[str] | None = None):
     options = argparse.ArgumentParser(add_help=False)
     options.add_argument("--rules", metavar="FILE", help="a yaml file of rules to play by, like poker/rules.yaml. It only needs the rules which are different")
@@ -283,6 +324,13 @@ def main(argv: list[str] | None = None):
     test_parser.add_argument("matches", type=positive, help="how many matches to play")
     test_parser.add_argument("ais", nargs="+", metavar="AI", help=ais_help)
     test_parser.set_defaults(function=test)
+
+    score_parser = commands.add_parser("score", parents=[options], help="score an AI as the competition does when you push, and write the score to a file")
+    score_parser.add_argument("ai", nargs="?", default="myAI.py", metavar="AI", help="path to a python file with a myAI function (myAI.py if left out)")
+    score_parser.add_argument("--output", default="score.txt", metavar="FILE", help="where to write the score (score.txt if left out)")
+    score_parser.add_argument("--states", type=int, default=1000, help="how many sample states to check the AI returns an Action on")
+    score_parser.add_argument("--matches", type=int, default=100, help="how many heads-up matches to play against a random bot")
+    score_parser.set_defaults(function=score)
 
     args = parser.parse_args(argv)
     args.function(args)
