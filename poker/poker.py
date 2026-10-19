@@ -1,125 +1,292 @@
 from __future__ import annotations
 
-import multiprocessing
-import queue
+import argparse
+import importlib.util
+import random
+import sys
+from pathlib import Path
+
+import yaml
+
+from .internals.engine import AI
+from .internals.rules import Rules
+from .internals.tournament import TABLE_SIZE, Tournament
 
 
-# raylib can only open one window in a process, so every table is shown by a process of its own. The AIs and the
-# tournament stay in the main process, which sends each window the hands played at its table as they are needed.
-#
-# A window sends the main process (generation, table, message), where the message is one of
-#   "need"     it has shown everything it was sent, and is ready for the next hand
-#   "restart"  R was pressed
-#   "closed"   the window has closed, because ESC was pressed, it was closed, or it closed itself after its table was broken up
-# The generation goes up every time the tournament restarts, so that messages sent before a restart can be told apart.
-#
-# The main process sends a window one of
-#   ("hand", hand)                              a hand to show
-#   ("finish", title, lines, hints, close_after) there are no more hands to come, so show this once the last one is over
-#   ("reset", generation, players)              the tournament has started again
-#   ("quit",)                                   close the window
+def load_ais(specs: list[str]) -> list[tuple[str, AI]]:
+    # Each spec is a path to a python file with a myAI function, optionally written as NAME=PATH
+    ais = []
+
+    for index, spec in enumerate(specs):
+        name, _, path = spec.rpartition("=")
+        path = Path(path)
+        name = name or path.stem
+
+        if not path.is_file():
+            raise SystemExit(f"poker: there is no file at {path}")
+
+        if str(path.parent.resolve()) not in sys.path:
+            sys.path.append(str(path.parent.resolve()))  # So that an AI can import files which are next to it
+
+        module_spec = importlib.util.spec_from_file_location(f"poker_ai_{index}", path)
+
+        if module_spec is None:
+            raise SystemExit(f"poker: {path} is not a python file")
+
+        module = importlib.util.module_from_spec(module_spec)
+        module_spec.loader.exec_module(module)
+
+        if not callable(getattr(module, "myAI", None)):
+            raise SystemExit(f"poker: {path} doesn't have a myAI function")
+
+        taken = [other for other, _ in ais]
+        base = name
+        number = 2
+
+        while name in taken:
+            name = f"{base} {number}"
+            number += 1
+
+        ais.append((name, module.myAI))
+
+    if len(ais) < 2:
+        raise SystemExit(f"poker: expected at least 2 AIs, but there were {len(ais)}")
+
+    return ais
 
 
-def show_table(number: int, count: int, players: list[str], total_hands: int, fullscreen: bool, generation: int, commands: multiprocessing.Queue, events: multiprocessing.Queue):
-    from .render import PokerRenderer
-
-    renderer = PokerRenderer(players=players, total_hands=total_hands, fullscreen=fullscreen, title="WAI Poker" if count == 1 else f"WAI Poker - Table {number}", tile=(number - 1, count))
-    asked = False
-
+def parse_blinds(text: str) -> tuple[int, int]:
     try:
-        while renderer.is_window_open():
-            try:
-                while True:
-                    command = commands.get_nowait()
+        small, big = (int(part) for part in text.split("/"))
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"expected blinds like 10/20, but got {text}")
 
-                    if command[0] == "hand":
-                        renderer.push(command[1])
-                        asked = False
+    if not 0 < small <= big:
+        raise argparse.ArgumentTypeError(f"expected 0 < small blind <= big blind, but got {text}")
 
-                    elif command[0] == "finish":
-                        renderer.finish(*command[1:])
-
-                    elif command[0] == "reset":
-                        generation = command[1]
-                        renderer.reset(players=command[2])
-                        asked = False
-
-                    elif command[0] == "quit":
-                        return
-
-            except queue.Empty:
-                pass
-
-            if renderer.should_restart():
-                events.put((generation, number, "restart"))
-
-            if not asked and renderer.needs_hand():
-                events.put((generation, number, "need"))
-                asked = True
-
-            renderer.update()
-
-            if renderer.should_close():
-                return
-
-    finally:
-        renderer.close()
-        events.put((generation, number, "closed"))
+    return small, big
 
 
-class Windows:
-    # The windows of every table, from the main process's side
-    def __init__(self, *, total_hands: int, fullscreen: bool):
-        self.context = multiprocessing.get_context("spawn")  # The same on every system, and nothing from the main process is copied into a window
-        self.events = self.context.Queue()
-        self.total_hands = total_hands
-        self.fullscreen = fullscreen
-        self.processes: dict[int, multiprocessing.Process] = {}
-        self.commands: dict[int, multiprocessing.Queue] = {}
-        self.open: set[int] = set()
-        self.generation = 0
+def positive(text: str) -> int:
+    value = int(text)
 
-    def start(self, tables: dict[int, list[str]]):
-        # Opens a window for every table, or starts again in the windows which are still open
-        self.generation += 1
+    if value <= 0:
+        raise argparse.ArgumentTypeError(f"expected a number greater than 0, but got {text}")
 
-        for number, players in tables.items():
-            if number in self.open and self.processes[number].is_alive():
-                self.send(number, "reset", self.generation, players)
+    return value
+
+
+def load_rules(args: argparse.Namespace) -> Rules:
+    # The rules come from poker/rules.yaml or the file given with --rules, and then the command line can change a few of them
+    try:
+        rules = Rules(args.rules)
+
+        if args.hands is not None:
+            rules.hands = args.hands
+
+        if args.stack is not None:
+            rules.stack = args.stack
+
+        if args.blinds is not None:
+            rules.small_blind, rules.big_blind = args.blinds
+
+        if args.timeout is not None:
+            rules.timeout = args.timeout
+
+        rules.check()
+
+    except (OSError, ValueError, KeyError, TypeError, yaml.YAMLError) as e:
+        raise SystemExit(f"poker: the rules can't be used: {e}")
+
+    return rules
+
+
+def new_tournament(args: argparse.Namespace, ais: list[tuple[str, AI]], rules: Rules) -> Tournament:
+    if args.seed is not None:
+        random.seed(args.seed)  # For AIs which use the random module
+
+    return Tournament(ais=ais, rules=rules, seed=args.seed)
+
+
+def print_standings(tournament: Tournament):
+    tables = len(tournament.tables)
+    print(f"Played {tournament.hands_played()} hands" + (f" across {tables} tables" if tables > 1 else ""))
+
+    for result in tournament.standings():
+        notes = []
+
+        if result.hand is not None:
+            notes.append(f"out on hand {result.hand}" + (f" at table {result.table}" if tables > 1 else ""))
+
+        if result.errors:
+            notes.append(f"{result.errors} bad actions")
+
+        print(f"{result.place:>2}. {result.name:<20} {result.stack:>8}" + (f"  ({', '.join(notes)})" if notes else ""))
+
+    if tournament.out:
+        print()
+        print("Went out")
+
+        for number, result in enumerate(tournament.out, start=1):
+            where = f"hand {result.hand}" + (f" at table {result.table}" if tables > 1 else "")
+            print(f"{number:>2}. {result.name:<20} {where:<22} finished {ordinal(result.place)}")
+
+
+def ordinal(number: int) -> str:
+    suffix = "th" if 10 <= number % 100 <= 20 else {1: "st", 2: "nd", 3: "rd"}.get(number % 10, "th")
+    return f"{number}{suffix}"
+
+
+def ending(tournament: Tournament) -> list[str]:
+    # The lines shown in a window once the tournament is over
+    standings = tournament.standings()
+    most = standings[0].stack
+    leaders = [result.name for result in standings if result.stack == most]
+    lines = [f"{leaders[0]} wins with {most:,} chips" if len(leaders) == 1 else f"{' and '.join(leaders)} tie on {most:,} chips"]
+
+    if len(tournament.tables) > 1:
+        lines += [f"{ordinal(result.place)}  {result.name}" for result in standings[1:3]]
+
+    return lines
+
+
+def run(args: argparse.Namespace):
+    ais = load_ais(args.ais)
+    rules = load_rules(args)
+
+    from .internals.render import CONTROLS  # Imported here so that poker test works without a screen
+    from .internals.window import Windows
+
+    print(f"Controls: {CONTROLS}")
+    tournament = new_tournament(args, ais, rules)
+    title = "MATCH OVER" if len(tournament.tables) == 1 else "TOURNAMENT OVER"
+    windows = Windows(total_hands=rules.hands, fullscreen=args.fullscreen)
+    told: dict[int, str] = {}  # What each window has been told about how its table ended
+
+    def tell_windows():
+        # Lets each window know once its table has nothing more to play, so it can say why after its last hand
+        over = tournament.is_over()
+
+        for table in tournament.tables:
+            if table.closed:
+                news = "closed"
+            elif over:
+                news = "over"
+            elif not table.can_deal():
+                news = "waiting"
+            else:
                 continue
 
-            if number in self.processes:
-                self.processes[number].join(timeout=1)
+            if told.get(table.number) == news:
+                continue
 
-            self.commands[number] = self.context.Queue()
-            process = self.context.Process(target=show_table, args=(number, len(tables), players, self.total_hands, self.fullscreen, self.generation, self.commands[number], self.events), daemon=True)
-            process.start()
-            self.processes[number] = process
-            self.open.add(number)
+            told[table.number] = news
 
-    def send(self, number: int, *command):
-        if number in self.open:
-            self.commands[number].put(command)
+            if news == "closed":
+                moved = " and ".join(str(number) for number in table.moved_to)
+                windows.send(table.number, "finish", "TABLE CLOSED", [f"Everyone here moved to table{'s' if len(table.moved_to) > 1 else ''} {moved}"], False, 4.0)
+            elif news == "over":
+                windows.send(table.number, "finish", title, ending(tournament), True, None)
+            else:
+                windows.send(table.number, "finish", "TABLE FINISHED", [f"All {rules.hands} hands have been played here", "Waiting for the other tables"], True, None)
 
-    def next_event(self) -> tuple[int, str] | None:
-        # Waits for a window to say something. Anything sent before the latest restart is dropped, apart from a window closing.
-        generation, number, message = self.events.get()
+    windows.start({table.number: [seat.name for seat in table.match.seats] for table in tournament.tables})
 
-        if message == "closed":
-            self.open.discard(number)
-            return (number, message) if generation == self.generation else None
+    try:
+        # Each window asks for its next hand once it has shown the last one, and the hand is played just before it is sent.
+        # Moving players between tables happens straight after a hand, while every table is between hands.
+        while windows.open:
+            event = windows.next_event()
 
-        if generation != self.generation or number not in self.open:
-            return None
+            if event is None:
+                continue
 
-        return number, message
+            number, message = event
+            table = tournament.tables[number - 1]
 
-    def close(self):
-        for number in list(self.open):
-            self.send(number, "quit")
+            if message == "need" and table.can_deal() and not tournament.is_over():
+                windows.send(number, "hand", tournament.play_hand(table))
+                tell_windows()
 
-        for process in self.processes.values():
-            process.join(timeout=2)
+            elif message == "restart":
+                tournament = new_tournament(args, ais, rules)
+                told = {}
+                windows.start({table.number: [seat.name for seat in table.match.seats] for table in tournament.tables})
 
-            if process.is_alive():
-                process.terminate()
+            elif message == "closed" and not told.get(number) == "closed":
+                break  # Closing the window of a table which is still playing ends everything, as ESC always has
+
+    finally:
+        windows.close()
+
+    print_standings(tournament)
+
+def test(args: argparse.Namespace):
+    ais = load_ais(args.ais)
+    rules = load_rules(args)
+    rng = random.Random(args.seed)
+
+    chips = {name: 0 for name, _ in ais}
+    wins = {name: 0.0 for name, _ in ais}
+    places = {name: 0 for name, _ in ais}
+    errors = {name: 0 for name, _ in ais}
+
+    for number in range(args.matches):
+        seed = None if args.seed is None else args.seed + number
+
+        if seed is not None:
+            random.seed(seed)
+
+        tournament = Tournament(ais=rng.sample(ais, len(ais)), rules=rules, seed=seed)  # Seats are shuffled every match
+        tournament.play()
+
+        standings = tournament.standings()
+        leaders = [result for result in standings if result.stack == standings[0].stack]
+
+        for result in standings:
+            chips[result.name] += result.stack
+            places[result.name] += result.place
+            errors[result.name] += result.errors
+
+        for result in leaders:
+            wins[result.name] += 1 / len(leaders)
+
+    width = max(len(name) for name in chips)
+    tables = -(-len(ais) // TABLE_SIZE)
+    print(f"{args.matches} matches of up to {rules.hands} hands" + (f" a table, starting on {tables} tables" if tables > 1 else ""))
+    print(f"{'AI':<{width}}  {'Won':>6}  {'Avg chips':>9}  {'Avg place':>9}  {'Bad actions':>11}")
+
+    for name in sorted(chips, key=lambda name: (wins[name], chips[name]), reverse=True):  # Best win rate first, then most chips
+        print(f"{name:<{width}}  {wins[name] / args.matches:>6.1%}  {chips[name] / args.matches:>9.1f}  {places[name] / args.matches:>9.2f}  {errors[name]:>11}")
+
+
+def main(argv: list[str] | None = None):
+    options = argparse.ArgumentParser(add_help=False)
+    options.add_argument("--rules", metavar="FILE", help="a yaml file of rules to play by, like poker/rules.yaml. It only needs the rules which are different")
+    options.add_argument("--hands", type=positive, help="most hands to play in a match, in place of what the rules say")
+    options.add_argument("--stack", type=positive, help="chips each AI starts with, in place of what the rules say")
+    options.add_argument("--blinds", type=parse_blinds, metavar="SMALL/BIG", help="the blinds at the start, like 10/20, in place of what the rules say")
+    options.add_argument("--timeout", type=float, metavar="SECONDS", help="how long an AI gets for each action, or 0 for no limit, in place of what the rules say")
+    options.add_argument("--seed", type=int, help="makes the cards the same every time")
+
+    ais_help = f"path to a python file with a myAI function, or NAME=PATH to choose the name it is shown with (at least 2, and more than {TABLE_SIZE} are split between tables)"
+
+    parser = argparse.ArgumentParser(prog="poker", description="Play poker AIs against each other.")
+    commands = parser.add_subparsers(dest="command", required=True)
+
+    run_parser = commands.add_parser("run", parents=[options], help="play a match and watch it, with a window for each table")
+    run_parser.add_argument("ais", nargs="+", metavar="AI", help=ais_help)
+    run_parser.add_argument("--fullscreen", action="store_true", help="start with the window filling the screen")
+    run_parser.set_defaults(function=run)
+
+    test_parser = commands.add_parser("test", parents=[options], help="play many matches without watching and print the results")
+    test_parser.add_argument("matches", type=positive, help="how many matches to play")
+    test_parser.add_argument("ais", nargs="+", metavar="AI", help=ais_help)
+    test_parser.set_defaults(function=test)
+
+    args = parser.parse_args(argv)
+    args.function(args)
+
+
+if __name__ == "__main__":
+    main()
