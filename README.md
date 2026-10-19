@@ -147,10 +147,10 @@ Writing `NAME=PATH` chooses the name an AI is shown with. Run `poker run --help`
 
 #### 🏅 Checking your score
 ```bash
-poker score
+python .github/submit.py
 ```
 
-This scores `myAI.py` the same way as when you push: it checks your AI returns an action on 1000 sample states, then plays it heads-up against a bot which plays at random. The score is printed and written to `score.txt`.
+This runs the same tests as when you push: it checks your AI returns an action, in time, on 1000 sample states. A bot which passes gets 10 points, which are printed and written to `score.txt`. All of your other points come from the weekly tournaments.
 
 #### 📜 Trying different rules
 ```bash
@@ -219,15 +219,22 @@ After that, the pattern carries on ten times bigger.
 - Everyone else finishes in the order they went out, the last to go out finishing highest.
 - Players who go out on the same hand, at any table, are placed by how many chips they had at the start of that hand: more chips finishes higher.
 
-### Scoring
+### Tournament Score
 
-Your score is your **peak chips**, which is the most chips you ever had at the end of a hand, plus **bonus chips** for where you finished: 10 for last, 20 for second to last, and so on up to the winner.
+Your score in a tournament is your **peak chips**, which is the most chips you ever had at the end of a hand, plus **bonus chips** for where you finished: 10 for last, 20 for second to last, and so on up to the winner.
 
 - With 28 players, the winner ends with all 5,600 chips and scores 5,600 + 280 = **5,880**.
 - Someone who never got past their starting stack of 200 scores 200 plus their bonus, so 210 if they came last.
 - A tournament with more players has more chips in play, so it gives bigger scores.
 
 Most of the score is for building a stack. A bot which folds every hand can outlast bots which gamble with each other, but it never wins a pot, so its peak chips stay at about its starting stack and it only gets the bonus for where it finished. The best way to score is to win chips, as in a real game of poker.
+
+### Leaderboard Points
+
+- **10 points** when you push a bot which passes the tests, which check it returns an action, in time, on 1000 sample states.
+- Every weekly tournament then adds your **tournament score** to your total on the leaderboard.
+- Your points add up from week to week, even when you push a new bot.
+- Each week, your latest bot which passes the tests plays. If your newest push fails the tests, your last one which passed plays instead.
 
 ---
 
@@ -269,7 +276,33 @@ To submit your AI, simply push a commit to your repository.
 > [!IMPORTANT]
 > **Your commits should only change `myAI.py`.** Before you push, check that no other file has changed, for example with `git status`. If anything other than `myAI.py` is listed, undo the change with `git restore <file>`, or delete the file if you added it.
 
-Every week at code night, your latest bot will compete against all other submitted bots. Points will be awarded, which you will be able to see on our website! <https://warwick.ai>
+Every week at code night, your latest bot which passes the tests will compete against all other submitted bots. Your points add up from week to week, and you can see them on our website! <https://warwick.ai>
+
+---
+
+## 🗓️ Running the Weekly Tournament
+
+This is for the organisers. Each week:
+
+1. **Download every team's bot.** In the website folder, this picks each team's latest submission which passed the tests:
+   ```bash
+   PROJECT_ID=poker npx astro db execute db/download-snapshots.ts --remote
+   ```
+2. **Move the bots out of the website folder.** Their code runs on your computer with access to your files, and the website folder holds the database's credentials:
+   ```bash
+   mv snapshots/poker ~/poker-round-1
+   ```
+3. **Play the tournament.** In this folder, with the round's seed so it can be played again the same way:
+   ```bash
+   poker run --snapshots ~/poker-round-1 --seed 1 --results round-1.json
+   ```
+4. **Record the results.** In the website folder, check with a dry run first, then run it again without `DRY_RUN=1`:
+   ```bash
+   PROJECT_ID=poker ROUND=1 RESULTS=../poker-comp-update/round-1.json DRY_RUN=1 \
+     npx astro db execute db/record-tournament.ts --remote
+   ```
+
+The leaderboard adds each team's tournament score to their total. Recording a round again replaces it, so a mistake can be fixed by recording the right results. A tournament which was stopped before it finished is only recorded with `FORCE=1`.
 
 ---
 
