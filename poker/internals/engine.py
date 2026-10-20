@@ -323,7 +323,7 @@ class Match:
             seat = order[index % len(order)]
             index += 1
 
-            if self.must_act(seat, self.acted_at):
+            if self.must_act(seat):
                 self.act(seat)
                 self.acted_at[seat] = self.current_bet
                 skipped = 0
@@ -347,7 +347,7 @@ class Match:
 
         return min(self.raise_size, most)
 
-    def must_act(self, seat: Seat, acted: dict[Seat, int]) -> bool:
+    def must_act(self, seat: Seat) -> bool:
         live = self.live()
 
         if seat.folded or seat.stack == 0 or len(live) < 2:
@@ -356,7 +356,7 @@ class Match:
         if seat.bet < self.current_bet:
             return True
 
-        if seat in acted:
+        if seat in self.acted_at:
             return False
 
         return sum(other.stack > 0 for other in live) > 1  # Otherwise there is nobody left to bet against

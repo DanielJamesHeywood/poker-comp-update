@@ -3,11 +3,8 @@ from poker.game_state import GameState
 
 
 def myAI(state: GameState) -> Action:
-    # Puts every chip in, every time
-    to_call = max(player.chips_bet for player in state.players) - state.my_player.chips_bet
-    left_after_calling = state.my_player.chips_in_stack - to_call
+    # Goes all in every time it's allowed to raise, and otherwise calls
+    if state.min_raise is None:
+        return Action.call()  # Raising isn't allowed, so this calls, which may put us all in anyway
 
-    if left_after_calling <= 0:
-        return Action.call()  # Calling already puts us all in
-
-    return Action.raise_by(left_after_calling)
+    return Action.raise_by(state.my_player.chips_in_stack)  # More than we have left after calling, which puts us all in

@@ -16,7 +16,7 @@ class GameState:
 
 
     def __repr__(self):
-        return f"GameState(my_player={self.my_player}, players={self.players}, chips_in_pot={self.chips_in_pot}, community_cards={self.community_cards})"
+        return f"GameState(my_player={self.my_player}, players={self.players}, chips_in_pot={self.chips_in_pot}, community_cards={self.community_cards}, small_blind={self.small_blind}, big_blind={self.big_blind}, ante={self.ante}, min_raise={self.min_raise})"
 
 
     def __eq__(self, other):
