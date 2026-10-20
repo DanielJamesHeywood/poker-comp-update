@@ -10,7 +10,4 @@ def myAI(state: GameState) -> Action:
     if biggest_bet > state.big_blind:
         return Action.check() if to_call == 0 else Action.fold()
 
-    if state.min_raise is None:
-        return Action.call()  # Raising isn't allowed, so this calls, or checks when there's nothing to call
-
     return Action.raise_by(state.big_blind)  # Never less than the smallest raise here, as nobody has bet more than the big blind

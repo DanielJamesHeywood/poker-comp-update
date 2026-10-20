@@ -39,11 +39,9 @@ def sample_state(rng: random.Random) -> GameState:
     chips_in_pot = sum(player.chips_bet for player in players) + rng.choice([0, rng.randint(1, 500)])
     big_blind = rng.choice([2, 3, 4, 6, 8, 10, 15, 20])
 
-    # The smallest raise, which is less than a full raise only when it would put the player all in, or None when they can't raise
-    left = my_player.chips_in_stack - (max(player.chips_bet for player in players) - my_player.chips_bet)
-    min_raise = min(rng.choice([big_blind, rng.randint(big_blind, 10 * big_blind)]), left) if left > 0 and rng.random() < 0.8 else None
+    minimum_raise = rng.choice([big_blind, rng.randint(big_blind, 10 * big_blind)])  # The smallest raise, which is never less than the big blind
 
-    return GameState(my_player=my_player, players=players, chips_in_pot=chips_in_pot, community_cards=community_cards, small_blind=big_blind // 2, big_blind=big_blind, ante=rng.choice([0, big_blind]), min_raise=min_raise)
+    return GameState(my_player=my_player, players=players, chips_in_pot=chips_in_pot, community_cards=community_cards, small_blind=big_blind // 2, big_blind=big_blind, ante=rng.choice([0, big_blind]), minimum_raise=minimum_raise)
 
 
 def check_states(ai: AI) -> list[str]:

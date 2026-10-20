@@ -99,14 +99,14 @@ The bots in the `examples` folder each follow one simple rule. A rule never chan
 | `call_preflop.py` | Calls before the flop, then checks or folds |
 | `call_when_big_blind.py` | Calls any bet when it is the big blind, and otherwise checks or folds |
 | `call_when_blind.py` | Calls any bet when it is the small blind or the big blind, and otherwise checks or folds |
-| `raise_by_minimum.py` | Raises by the smallest amount allowed every time it can, and otherwise calls |
-| `raise_by_big_blind_unless_raised.py` | Raises by the big blind whenever nobody has bet more than the big blind, or calls if it can't raise, and folds to anything bigger |
-| `raise_by_half_of_stack.py` | Raises by half of the chips it has left after calling, or by the smallest raise if that's more, every time it can, and otherwise calls |
-| `raise_by_pot.py` | Raises by the size of the pot every time it can, and otherwise calls |
-| `raise_by_pot_when_biggest_stack.py` | Raises by the size of the pot when it has the most chips at the table, or calls if it can't raise, and otherwise checks or folds |
-| `go_all_in.py` | Goes all in every time it can raise, and otherwise calls |
-| `go_all_in_on_pair.py` | Goes all in when its two cards are a pair, or calls if it can't raise, and otherwise checks or folds |
-| `go_all_in_on_ace.py` | Goes all in when it holds an ace, or calls if it can't raise, and otherwise checks or folds |
+| `raise_by_minimum.py` | Raises by the smallest amount allowed every time |
+| `raise_by_big_blind_unless_raised.py` | Raises by the big blind whenever nobody has bet more than the big blind, and folds to anything bigger |
+| `raise_by_half_of_stack.py` | Raises by half of the chips it has left after calling, or by the smallest raise if that's more, every time |
+| `raise_by_pot.py` | Raises by the size of the pot every time |
+| `raise_by_pot_when_biggest_stack.py` | Raises by the size of the pot when it has the most chips at the table, and otherwise checks or folds |
+| `go_all_in.py` | Goes all in every time |
+| `go_all_in_on_pair.py` | Goes all in when its two cards are a pair, and otherwise checks or folds |
+| `go_all_in_on_ace.py` | Goes all in when it holds an ace, and otherwise checks or folds |
 
 #### 👀 Watch a match
 ```bash
@@ -196,7 +196,7 @@ These are the rules every game is played by, including the weekly competition. A
 - **The smallest raise:** the first bet in a betting round must be at least the big blind, and before the flop the big blind counts as that first bet. Every raise must be at least as big as the biggest bet or raise so far in the betting round. This starts again on the flop, the turn and the river. A smaller raise is made the smallest one allowed, and going all in is always allowed, even for less.
   - With blinds of 1/2, if someone raises to 7, which is by 5, the next raise must be by at least 5, to 12 or more.
   - After the flop, if someone bets 7, the next raise must be by at least 7, to 14 or more.
-- **When you can't raise:** a raise counts as a call when you can't afford more than a call, or when nobody left could call it. It also counts as a call when the betting hasn't been reopened. That's when you've already acted in this betting round, and since then the bet has only gone up by all-ins which together are less than a full raise. `state.min_raise` is `None` in all of these.
+- **You can always raise when it's your turn.** If calling already takes everything you have, a raise counts as a call, which puts you all in. Any part of a raise which nobody calls goes back to you.
 - **Calling** a bet bigger than your stack puts you all in.
 - Any part of a bet which nobody called goes back to the player who made it. Side pots are made for players who are all in, and a split pot gives any odd chips to the first players after the button.
 
@@ -277,7 +277,7 @@ The game is played by the [Tournament Rules](#-tournament-rules) above. A few th
 
 - `chips_bet` is how many chips a player has put in during the current betting round, so the amount you need to call is the biggest `chips_bet` at the table minus your own. `chips_in_pot` is everything bet in the hand so far.
 - `small_blind`, `big_blind` and `ante` are the sizes for the current hand, so your AI can size its bets as the blinds go up.
-- `min_raise` is the smallest amount you can raise by, or `None` when you can't raise. It's only less than a full raise when that's all you have left, which puts you all in.
+- `minimum_raise` is the smallest amount you can raise by. A smaller raise is made this one. If you have fewer chips than this after calling, raising puts you all in.
 - Every player has an `id`, a random number which stays the same for one tournament, even if they move tables, so your AI can tell players apart. Each match of `poker run` or `poker test` is a new tournament, with new ids, and the weekly tournament is one tournament.
 
 ### Some Inspiration

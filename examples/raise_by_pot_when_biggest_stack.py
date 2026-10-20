@@ -11,8 +11,5 @@ def myAI(state: GameState) -> Action:
     if me.chips_in_stack + me.chips_bet < biggest_stack:
         return Action.check() if to_call == 0 else Action.fold()
 
-    if state.min_raise is None:
-        return Action.call()  # Raising isn't allowed, so this calls, or checks when there's nothing to call
-
     pot_after_calling = state.chips_in_pot + to_call
-    return Action.raise_by(max(pot_after_calling, state.min_raise))  # More than we have puts us all in
+    return Action.raise_by(max(pot_after_calling, state.minimum_raise))  # More than we have puts us all in
