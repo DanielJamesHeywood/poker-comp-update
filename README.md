@@ -15,8 +15,8 @@ Hello all and welcome to the second Warwick AI programming competition!
 Don't worry if you're new to programming or AI, there's something here for everyone! For beginners, check out the WAI + Code Soc + UWCS Python course or ask us anything at our weekly code nights. See our [website](https://warwick.ai) for details.
 
 > [!IMPORTANT]
-> ### Please only change `myAI.py`
-> Your whole bot should be in `myAI.py`, and please don't edit, add, rename, move or delete any other file in your repository. That includes the `poker` folder, the `examples` folder, `pyproject.toml`, `README.md` and the `.github` folder. Every bot is played with the same copy of these files, so changing them can stop yours from working.
+> ### Only change `myAI.py` and files you add
+> Your bot is the `myAI` function in `myAI.py`, and you can add files of your own for it to use, such as helper modules or saved data. Please don't edit, rename, move or delete any of the other files you were given. That includes the `poker` folder, the `examples` folder, `pyproject.toml`, `README.md` and the `.github` folder. Every bot is played with the same copy of these files, so changing them can stop yours from working.
 >
 > If you have an idea for the game itself, we'd love to hear it (see [Contributing](#-contributing)).
 
@@ -117,12 +117,12 @@ This opens a window and plays a match in it, showing everyone's cards, the bets 
 
 | Key | What it does |
 |---|---|
-| `SPACE` | Pause and resume |
-| `LEFT` / `RIGHT` | Step backwards and forwards |
-| `UP` / `DOWN` | Speed up and slow down |
+| `SPACE` | Pause and resume every table |
+| `LEFT` / `RIGHT` | Step backwards and forwards at this table, pausing every table |
+| `UP` / `DOWN` | Speed up and slow down every table |
 | `N` | Skip to the next hand |
 | `F` | Switch between a window and fullscreen |
-| `R` | Restart the match |
+| `R` | Restart the match, with the same seats |
 | `ESC` | Quit |
 
 #### ⚡ Run headless tests
@@ -130,13 +130,19 @@ This opens a window and plays a match in it, showing everyone's cards, the bets 
 poker test 100 myAI.py examples/call.py examples/raise_by_small_blind.py examples/default.py
 ```
 
-This plays 100 matches without showing them, and prints how each AI did.
+This plays 100 matches without showing them. The seats are drawn once, and every match is played with them. It then prints:
+
+- How each AI did: how often it won, and its average place, score, peak chips and number of hands lasted.
+- How each AI played: how often it folded, checked, called, raised and went all in, and how long it took to choose.
+- Why any bad actions happened, with the most common reasons first.
 
 #### 🎲 Deterministic testing
 ```bash
 poker run myAI.py examples/raise_by_small_blind.py --seed 123
 poker test 100 myAI.py examples/raise_by_small_blind.py --seed 69
 ```
+
+`--seed` makes the seats and the cards the same every time, so the same command plays the same matches again.
 
 #### 🆚 Comparing versions of your AI
 ```bash
@@ -174,7 +180,8 @@ These are the rules every game is played by, including the weekly competition. A
 
 ### Tables
 
-- A table seats at most 8 players. With more than 8, players are dealt out in turn, in the order they are given, between as few tables as they fit at, so the tables are as even as they can be. In the weekly tournament, the order is drawn at random.
+- The seats are drawn at random before the first hand, so nobody always sits next to the same players.
+- A table seats at most 8 players. With more than 8, players are dealt out in turn, in the order their seats were drawn, between as few tables as they fit at, so the tables are as even as they can be.
 - The tables play **hand for hand**: no table deals its next hand until every other table has finished the one before. So hand 20 at one table is played alongside hand 20 at every other.
 - Players are only moved between tables once every table has finished a hand.
   - **Breaking a table:** when everyone left would fit at fewer tables, the table with the fewest players is broken up, and its players are sent one at a time to whichever tables have the fewest players.
@@ -242,7 +249,7 @@ Most of the score is for building a stack. A bot which folds every hand can outl
 ## 🧠 Writing Your AI
 
 ### The Basics
-Your submission is the `myAI` function in `myAI.py`, and **`myAI.py` should be the only file you change**. Please put everything your bot needs, including any helper functions, in `myAI.py`:
+Your submission is the `myAI` function in `myAI.py`. **Of the files you were given, `myAI.py` should be the only one you change**, but you can add files of your own for it to use:
 
 ```python
 def myAI(state: GameState) -> Action:
@@ -253,12 +260,20 @@ def myAI(state: GameState) -> Action:
 Your AI function should use the current state of the game `state` and output an `Action` of type of `CHECK`, `CALL`, `RAISE` or `FOLD`·
 These can be constructed using `Action.check()`, `Action.call()`, `Action.raise_by(amount: int)` or `Action.fold()`.
 
+### Using Your Own Files
+
+- **Helper modules** next to `myAI.py` can be imported as usual, such as `from helpers import hand_strength` for a `helpers.py`.
+- **Data files**, such as saved weights, are best opened with a path from `myAI.py`'s folder, such as `Path(__file__).parent / "weights.json"`, so they're found wherever the game is run from.
+- **Packages:** only Python's standard library and the packages this project installs are there when your bot is tested and played, so it can't use other packages. Adding them to `pyproject.toml` won't help, because every bot is played with the same copy of it.
+- In the weekly tournament, your bot can read its files but not change them.
+
 ### What Your AI Sees
 
 The game is played by the [Tournament Rules](#-tournament-rules) above. A few things about the `state` your AI is given:
 
 - `chips_bet` is how many chips a player has put in during the current betting round, so the amount you need to call is the biggest `chips_bet` at the table minus your own. `chips_in_pot` is everything bet in the hand so far.
 - `small_blind`, `big_blind` and `ante` are the sizes for the current hand, so your AI can size its bets as the blinds go up.
+- Every player has an `id`, a random number which stays the same for one tournament, even if they move tables, so your AI can tell players apart. Each match of `poker run` or `poker test` is a new tournament, with new ids, and the weekly tournament is one tournament.
 
 ### Some Inspiration
 
@@ -275,7 +290,7 @@ There's all sorts of ways to write an AI for this competition:
 To submit your AI, simply push a commit to your repository. 
 
 > [!IMPORTANT]
-> **Your commits should only change `myAI.py`.** Before you push, check that no other file has changed, for example with `git status`. If anything other than `myAI.py` is listed, undo the change with `git restore <file>`, or delete the file if you added it.
+> **Your commits should only change `myAI.py` and files you've added.** Before you push, check with `git status` that none of the other files you were given has changed. If one has, undo the change with `git restore <file>`.
 
 Every week at code night, your latest bot which passes the tests will compete against all other submitted bots. Your points add up from week to week, and you can see them on our website! <https://warwick.ai>
 
@@ -321,7 +336,7 @@ The leaderboard adds each team's tournament score to their total. Recording a ro
 ## Important!!!
 
 > [!IMPORTANT]
-> **Please only change `myAI.py`,** and put all of your code, including helper functions, in it.
+> **Please only change `myAI.py` and files you've added yourself.**
 
 Other than this, have fun and see you at code nights! 
 

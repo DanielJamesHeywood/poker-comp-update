@@ -3,6 +3,8 @@ from __future__ import annotations
 import random
 import signal
 import threading
+import time
+from collections import Counter
 from contextlib import contextmanager
 from typing import Callable
 
@@ -60,8 +62,16 @@ class Seat:
         self.folded = False
         self.bet = 0  # Chips put in during the current betting round
         self.total_bet = 0  # Chips put in during the current hand
+        self.id: int | None = None  # What the AIs see this player as, which the tournament draws
         self.errors = 0
         self.peak = stack  # The most chips this player has had at the end of any hand, which is their score
+
+        # How they played, which poker test reports
+        self.actions: Counter[str] = Counter()  # How often each kind of action was played for them, and how often it put them all in
+        self.problems: Counter[str] = Counter()  # Why their bad actions happened
+        self.asked = 0  # How many actions their AI was asked for
+        self.thinking = 0.0  # Seconds their AI spent choosing them
+        self.slowest = 0.0
 
 
 class Match:
@@ -344,6 +354,7 @@ class Match:
         else:
             # The same as defaultAI in myAI.py
             seat.errors += 1
+            seat.problems[problem] += 1
             kind = Action.Kind.CHECK if to_call == 0 else Action.Kind.FOLD
 
         if kind is Action.Kind.RAISE:
@@ -375,14 +386,27 @@ class Match:
             self.current_bet = seat.bet
             text, label = (f"bets {seat.bet}", f"Bet {seat.bet}") if opening else (f"raises to {seat.bet}", f"Raise {seat.bet}")
 
+        seat.actions[kind.value] += 1
+
         if seat.stack == 0 and kind in (Action.Kind.CALL, Action.Kind.RAISE):
             text += " and is all in"
+            seat.actions["all in"] += 1
 
         self.frame(kind.value, f"{seat.name} {text}", seat=seat, label=label, problem=problem)
 
     def ask(self, seat: Seat) -> tuple[Action | None, str | None]:
         state = self.state_for(seat)
+        started = time.perf_counter()
 
+        try:
+            return self.answer(seat, state)
+        finally:
+            took = time.perf_counter() - started
+            seat.asked += 1
+            seat.thinking += took
+            seat.slowest = max(seat.slowest, took)
+
+    def answer(self, seat: Seat, state: GameState) -> tuple[Action | None, str | None]:
         try:
             with time_limit(self.timeout):
                 action = seat.ai(state)
@@ -403,8 +427,8 @@ class Match:
 
     def state_for(self, seat: Seat) -> GameState:
         # Everything is built fresh, so that an AI can't change the game by changing what it is given
-        my_player = MyPlayer(blind=seat.blind, chips_in_stack=seat.stack, chips_bet=seat.bet, hole_cards=set(seat.hole_cards))
-        players = [my_player if other is seat else Player(blind=other.blind, has_folded=other.folded, chips_in_stack=other.stack, chips_bet=other.bet) for other in self.seats if other.dealt]
+        my_player = MyPlayer(id=seat.id, blind=seat.blind, chips_in_stack=seat.stack, chips_bet=seat.bet, hole_cards=set(seat.hole_cards))
+        players = [my_player if other is seat else Player(id=other.id, blind=other.blind, has_folded=other.folded, chips_in_stack=other.stack, chips_bet=other.bet) for other in self.seats if other.dealt]
 
         return GameState(my_player=my_player, players=players, chips_in_pot=self.pot, community_cards=set(self.board), small_blind=self.small_blind, big_blind=self.big_blind, ante=self.ante)
 
