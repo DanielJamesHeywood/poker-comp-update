@@ -99,11 +99,10 @@ The bots in the `examples` folder each follow one simple rule. A rule never chan
 | `call_preflop.py` | Calls before the flop, then checks or folds |
 | `call_when_big_blind.py` | Calls any bet when it is the big blind, and otherwise checks or folds |
 | `call_when_blind.py` | Calls any bet when it is the small blind or the big blind, and otherwise checks or folds |
-| `raise_by_small_blind.py` | Raises by the small blind every time |
-| `raise_by_big_blind_unless_raised.py` | Raises by the big blind whenever nobody has bet more than the big blind, and folds to anything bigger |
-| `raise_by_half_of_stack.py` | Raises by half of the chips it has left after calling, every time |
-| `raise_by_pot.py` | Raises by the size of the pot every time |
-| `raise_by_pot_when_biggest_stack.py` | Raises by the size of the pot when it has the most chips at the table, and otherwise checks or folds |
+| `raise_by_big_blind_unless_raised.py` | Raises by at least the minimum raise whenever nobody has bet more than the big blind, and folds to anything bigger |
+| `raise_by_half_of_stack.py` | Raises by half of the chips it has left after calling, or the minimum raise if that is bigger |
+| `raise_by_pot.py` | Raises by the size of the pot, or the minimum raise if that is bigger |
+| `raise_by_pot_when_biggest_stack.py` | Raises by the size of the pot, or the minimum raise if that is bigger, when it has the most chips at the table, and otherwise checks or folds |
 | `go_all_in.py` | Goes all in every time |
 | `go_all_in_on_pair.py` | Goes all in when its two cards are a pair, and otherwise checks or folds |
 | `go_all_in_on_ace.py` | Goes all in when it holds an ace, and otherwise checks or folds |
@@ -127,15 +126,15 @@ This opens a window and plays a match in it, showing everyone's cards, the bets 
 
 #### ⚡ Run headless tests
 ```bash
-poker test 100 myAI.py examples/call.py examples/raise_by_small_blind.py examples/default.py
+poker test 100 myAI.py examples/call.py examples/raise_by_big_blind_unless_raised.py examples/default.py
 ```
 
 This plays 100 matches without showing them, and prints how each AI did.
 
 #### 🎲 Deterministic testing
 ```bash
-poker run myAI.py examples/raise_by_small_blind.py --seed 123
-poker test 100 myAI.py examples/raise_by_small_blind.py --seed 69
+poker run myAI.py examples/raise_by_big_blind_unless_raised.py --seed 123
+poker test 100 myAI.py examples/raise_by_big_blind_unless_raised.py --seed 69
 ```
 
 #### 🆚 Comparing versions of your AI
