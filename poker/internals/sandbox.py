@@ -76,6 +76,7 @@ def state_to_json(state: GameState) -> dict:
         "small_blind": state.small_blind,
         "big_blind": state.big_blind,
         "ante": state.ante,
+        "min_raise": state.min_raise,
     }
 
 
@@ -96,7 +97,7 @@ def state_from_json(data: dict) -> GameState:
         else:
             players.append(Player(id=entry["id"], blind=blind, has_folded=entry["has_folded"], chips_in_stack=entry["chips_in_stack"], chips_bet=entry["chips_bet"]))
 
-    return GameState(my_player=my_player, players=players, chips_in_pot=data["chips_in_pot"], community_cards={card(pair) for pair in data["community_cards"]}, small_blind=data["small_blind"], big_blind=data["big_blind"], ante=data["ante"])
+    return GameState(my_player=my_player, players=players, chips_in_pot=data["chips_in_pot"], community_cards={card(pair) for pair in data["community_cards"]}, small_blind=data["small_blind"], big_blind=data["big_blind"], ante=data["ante"], min_raise=data["min_raise"])
 
 
 def action_to_json(action: Action) -> dict:

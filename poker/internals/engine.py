@@ -104,6 +104,8 @@ class Match:
         self.frames: list[dict] = []
         self.pot = 0
         self.current_bet = 0
+        self.raise_size = 0  # The smallest a bet or raise can be in the current betting round, unless it puts the player all in
+        self.acted_at: dict[Seat, int] = {}  # The bet each player left it at when they last acted in the current betting round
 
     def play(self):
         # Plays until one player has every chip, or until the most hands the rules allow if they set a limit
@@ -254,6 +256,7 @@ class Match:
                 self.frame("blind", f"{seat.name} posts the {label} of {paid}", seat=seat, label=f"Blind {paid}")
 
         self.current_bet = max(small.bet, big.bet)  # Less than the big blind if the blinds are too short of chips to post it
+        self.raise_size = self.big_blind  # The big blind counts as the first bet, so the smallest raise is by a big blind
 
         self.betting_round(self.dealt_from(self.seats.index(big) + 1))
 
@@ -265,6 +268,7 @@ class Match:
                 seat.bet = 0
 
             self.current_bet = 0
+            self.raise_size = self.big_blind  # The smallest raise starts again at every betting round
 
             cards = [deck.pop() for _ in range(count)]
             self.board += cards
@@ -311,7 +315,7 @@ class Match:
         return amount
 
     def betting_round(self, order: list[Seat]):
-        acted: set[Seat] = set()
+        self.acted_at = {}
         index = 0
         skipped = 0
 
@@ -319,16 +323,31 @@ class Match:
             seat = order[index % len(order)]
             index += 1
 
-            if self.must_act(seat, acted):
+            if self.must_act(seat, self.acted_at):
                 self.act(seat)
-                acted.add(seat)
+                self.acted_at[seat] = self.current_bet
                 skipped = 0
             else:
                 skipped += 1
 
         self.return_uncalled()
 
-    def must_act(self, seat: Seat, acted: set[Seat]) -> bool:
+    def min_raise(self, seat: Seat) -> int | None:
+        # The smallest amount the player can raise by, or None if they can't raise. Less than a full raise puts them all in.
+        most = seat.stack - (self.current_bet - seat.bet)
+
+        if most <= 0:
+            return None  # They can only just call, or not even that
+
+        if not any(other.stack > 0 for other in self.live() if other is not seat):
+            return None  # Nobody left could call a raise
+
+        if seat in self.acted_at and self.current_bet - self.acted_at[seat] < self.raise_size:
+            return None  # Only an all-in of less than a full raise has happened since they acted, which doesn't reopen the betting
+
+        return min(self.raise_size, most)
+
+    def must_act(self, seat: Seat, acted: dict[Seat, int]) -> bool:
         live = self.live()
 
         if seat.folded or seat.stack == 0 or len(live) < 2:
@@ -357,12 +376,10 @@ class Match:
             seat.problems[problem] += 1
             kind = Action.Kind.CHECK if to_call == 0 else Action.Kind.FOLD
 
-        if kind is Action.Kind.RAISE:
-            most = seat.stack - to_call
-            can_be_called = any(other.stack > 0 for other in self.live() if other is not seat)
+        smallest = self.min_raise(seat)
 
-            if most <= 0 or not can_be_called:
-                kind = Action.Kind.CALL
+        if kind is Action.Kind.RAISE and smallest is None:
+            kind = Action.Kind.CALL  # A raise which isn't allowed is played as a call
 
         if kind is Action.Kind.CALL and to_call == 0:
             kind = Action.Kind.CHECK
@@ -379,10 +396,15 @@ class Match:
             text, label = f"calls {paid}", f"Call {paid}"
 
         else:
-            # A raise is by `amount` on top of the bet being called. There is no smallest raise, and a raise of more than the player has puts them all in.
-            amount = min(action.amount, most)
+            # A raise is by `amount` on top of the bet being called. One smaller than the smallest raise is made the smallest raise,
+            # and one of more than the player has puts them all in.
+            amount = min(max(action.amount, smallest), seat.stack - to_call)
             opening = self.current_bet == 0
             self.put_in(seat, to_call + amount)
+
+            if amount >= self.raise_size:
+                self.raise_size = amount  # A full raise, which the next one has to be at least as big as. An all-in for less doesn't change it.
+
             self.current_bet = seat.bet
             text, label = (f"bets {seat.bet}", f"Bet {seat.bet}") if opening else (f"raises to {seat.bet}", f"Raise {seat.bet}")
 
@@ -430,7 +452,7 @@ class Match:
         my_player = MyPlayer(id=seat.id, blind=seat.blind, chips_in_stack=seat.stack, chips_bet=seat.bet, hole_cards=set(seat.hole_cards))
         players = [my_player if other is seat else Player(id=other.id, blind=other.blind, has_folded=other.folded, chips_in_stack=other.stack, chips_bet=other.bet) for other in self.seats if other.dealt]
 
-        return GameState(my_player=my_player, players=players, chips_in_pot=self.pot, community_cards=set(self.board), small_blind=self.small_blind, big_blind=self.big_blind, ante=self.ante)
+        return GameState(my_player=my_player, players=players, chips_in_pot=self.pot, community_cards=set(self.board), small_blind=self.small_blind, big_blind=self.big_blind, ante=self.ante, min_raise=self.min_raise(seat))
 
     def return_uncalled(self):
         # If nobody matched the biggest bet, the unmatched part goes back
