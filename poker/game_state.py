@@ -15,6 +15,11 @@ class GameState:
         self.minimum_raise = minimum_raise if minimum_raise is not None else big_blind  # The smallest amount you can raise by. If you have fewer chips than that, raising puts you all in
 
 
+    @property
+    def min_raise(self) -> int:
+        # The name minimum_raise had at first, so that bots which already use it keep working
+        return self.minimum_raise
+
     def __repr__(self):
         return f"GameState(my_player={self.my_player}, players={self.players}, chips_in_pot={self.chips_in_pot}, community_cards={self.community_cards}, small_blind={self.small_blind}, big_blind={self.big_blind}, ante={self.ante}, minimum_raise={self.minimum_raise})"
 

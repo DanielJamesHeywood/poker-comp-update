@@ -246,7 +246,7 @@ Most of the score is for building a stack. A bot which folds every hand can outl
 - **100 points** when you push a bot which passes the tests, which check it returns an action, in time, on 1000 sample states.
 - Every weekly tournament then adds your **tournament score** to your total on the leaderboard.
 - Your points add up from week to week, even when you push a new bot.
-- Each week, your latest bot which passes the tests plays. If your newest push fails the tests, your last one which passed plays instead.
+- Each week, the bot from your latest push plays, as long as it passes the tests. If it doesn't pass them, you don't play that week, so check with `poker score` before you push.
 
 ---
 
@@ -297,7 +297,7 @@ To submit your AI, simply push a commit to your repository.
 > [!IMPORTANT]
 > **Your commits should only change `myAI.py` and files you've added.** Before you push, check with `git status` that none of the other files you were given has changed. If one has, undo the change with `git restore <file>`.
 
-Every week at code night, your latest bot which passes the tests will compete against all other submitted bots. Your points add up from week to week, and you can see them on our website! <https://warwick.ai>
+Every week at code night, the bot from your latest push will compete against all other submitted bots, as long as it passes the tests. Your points add up from week to week, and you can see them on our website! <https://warwick.ai>
 
 ---
 
@@ -307,14 +307,15 @@ This is for the organisers. Whenever this template changes, bring every team's r
 
 Each week:
 
-1. **Download every team's bot.** In the website folder, this picks each team's latest submission which passed the tests:
+1. **Download every team's bot.** In the website folder, this picks each team's latest submission. A team whose latest bot didn't pass the tests is left out of the tournament:
    ```bash
-   PROJECT_ID=poker npx astro db execute db/download-snapshots.ts --remote
+   PROJECT_ID=poker PICK=latest npx astro db execute db/download-snapshots.ts --remote
    ```
 2. **Move the bots out of the website folder,** to keep them away from its credentials:
    ```bash
    mv snapshots/poker ~/poker-round-1
    ```
+   If `~/poker-round-1` already exists, e.g. from downloading again, move or delete it first. Otherwise `mv` puts the new bots inside it, as `~/poker-round-1/poker`, and the tournament still plays the old ones.
 3. **Check the bots and build the sandbox.** In the WarwickAI/competitions folder, with Docker running, this runs every team's tests again in a locked-down container of its own, and builds the `wai-results` image the tournament uses:
    ```bash
    STUDENT_FILES="myAI.py" ./results/run.sh ~/poker-round-1 ../poker-comp-update
