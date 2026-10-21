@@ -107,6 +107,19 @@ The bots in the `examples` folder each follow one simple rule. A rule never chan
 | `go_all_in.py` | Goes all in every time |
 | `go_all_in_on_pair.py` | Goes all in when its two cards are a pair, and otherwise checks or folds |
 | `go_all_in_on_ace.py` | Goes all in when it holds an ace, and otherwise checks or folds |
+| `go_all_in_on_tiers_1_to_5.py` | Goes all in with a hand in tiers 1 to 5, and otherwise checks or folds |
+| `go_all_in_on_tiers_1_to_4_and_call_on_tier_5.py` | Goes all in with a hand in tiers 1 to 4, calls with a tier 5 hand, and otherwise checks or folds |
+| `call_on_tiers_1_to_6.py` | Calls with a hand in any of the six tiers, and otherwise checks or folds |
+
+The tiers are Phil Hellmuth's tiers of starting hands, from *Play Poker Like the Pros*, as [Wikipedia](https://en.wikipedia.org/wiki/Texas_hold_%27em_starting_hands) lists them. Tier 1 is the strongest: AA, KK, QQ, and an ace with a king.
+
+These bots also keep notes on the other players, by their `id`, and change what they do depending on how those players have played. They only see the table on their own turns, so they count how often they've seen each player folded, or raising, which is having the biggest bet when it's more than the big blind. They start counting after seeing a player 10 times.
+
+| Bot | Rule |
+|---|---|
+| `go_all_in_against_frequent_raisers.py` | Goes all in against a raise from a player it has seen raising at least a fifth of the time, and otherwise checks or folds |
+| `go_all_in_on_tiers_1_to_5_or_against_frequent_raisers.py` | Goes all in with a hand in tiers 1 to 5, or with any hand against a raise from a player it has seen raising at least a fifth of the time, and otherwise checks or folds |
+| `go_all_in_on_tiers_1_to_5_or_when_the_others_usually_fold.py` | Goes all in with a hand in tiers 1 to 5, or with any hand when it has seen everyone else still in the hand folded at least four fifths of the time, and otherwise checks or folds |
 
 #### 👀 Watch a match
 ```bash
