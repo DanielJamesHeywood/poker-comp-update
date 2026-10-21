@@ -102,8 +102,8 @@ class Tournament:
         seats = [seat for table in self.tables for seat in table.match.seats]
         ids = random.Random(None if seed is None else f"{seed}/ids").sample(range(1, 1_000_000), len(seats))
 
-        for seat, id in zip(seats, ids):
-            seat.id = id
+        for seat, number in zip(seats, ids):
+            seat.id = number
 
         self.entrants = len(ais)
         self.exits: list[Exit] = []
