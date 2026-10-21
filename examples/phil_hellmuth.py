@@ -4,8 +4,7 @@ from poker.game_state import GameState
 
 
 # Phil Hellmuth's six tiers of starting hands, from his book Play Poker Like the Pros, as Wikipedia's "Texas hold 'em starting
-# hands" lists them, strongest first. A hand ending in "s" has both cards of the same suit, and one without it has two
-# different suits.
+# hands" lists them, strongest first. A hand ending in "s" has both cards of the same suit, and one without it has two different suits.
 TIERS = [
     {"AA", "KK", "AKs", "QQ", "AK"},
     {"JJ", "TT", "99"},
@@ -14,6 +13,7 @@ TIERS = [
     {"A7s", "A6s", "A5s", "A4s", "A3s", "A2s", "KQs", "KQ"},
     {"QJs", "JTs", "T9s", "98s", "87s", "76s", "65s"},
 ]
+
 LETTERS = dict(zip(Rank, "23456789TJQKA"))  # Rank lists the ranks from lowest to highest
 
 
