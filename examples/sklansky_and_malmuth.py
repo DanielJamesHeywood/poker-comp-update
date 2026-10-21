@@ -27,8 +27,11 @@ def hand(state: GameState) -> str:
 
 
 def myAI(state: GameState) -> Action:
-    # Goes all in with a hand in the top four of Sklansky and Malmuth's eight groups, and otherwise checks or folds
-    if any(hand(state) in group for group in GROUPS[:4]):
+    # Goes all in with a hand in the top three of Sklansky and Malmuth's eight groups, or any hand with fewer than 10 big blinds, and otherwise checks or folds
+    # With fewer than 10 big blinds, waiting lets the blinds eat our chips, so any two cards are worth going all in with
+    big_blinds = (state.my_player.chips_in_stack + state.my_player.chips_bet) / state.big_blind
+
+    if big_blinds < 10 or any(hand(state) in group for group in GROUPS[:3]):
         return Action.raise_by(10 ** 9)  # More than anyone has, which puts us all in
 
     to_call = max(player.chips_bet for player in state.players) - state.my_player.chips_bet

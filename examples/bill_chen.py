@@ -29,8 +29,11 @@ def chen_score(state: GameState) -> float:
 
 
 def myAI(state: GameState) -> Action:
-    # Goes all in with a Chen score of at least 7, and otherwise checks or folds
-    if chen_score(state) >= 7:
+    # Goes all in with a Chen score of at least 9, or any hand with fewer than 10 big blinds, and otherwise checks or folds
+    # With fewer than 10 big blinds, waiting lets the blinds eat our chips, so any two cards are worth going all in with
+    big_blinds = (state.my_player.chips_in_stack + state.my_player.chips_bet) / state.big_blind
+
+    if big_blinds < 10 or chen_score(state) >= 9:
         return Action.raise_by(10 ** 9)  # More than anyone has, which puts us all in
 
     to_call = max(player.chips_bet for player in state.players) - state.my_player.chips_bet

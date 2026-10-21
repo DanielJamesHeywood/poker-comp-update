@@ -3,8 +3,9 @@ from poker.card import Rank
 from poker.game_state import GameState
 
 
-# PokerRoom.com's nine tiers of starting hands, worked out from how much each hand won in real games played there, as
-# Wikipedia's "Texas hold 'em starting hands" lists them, strongest first. A hand ending in "s" has both cards of the same suit, and one without it has two different suits.
+# Nine tiers of starting hands from statistics based on real play, which rank each hand by how much it won on average in
+# real games, as Wikipedia's "Texas hold 'em starting hands" lists them, strongest first. The statistics are PokerRoom.com's.
+# A hand ending in "s" has both cards of the same suit, and one without it has two different suits.
 TIERS = [
     {"AA", "KK", "QQ", "JJ", "AKs"},
     {"AQs", "TT", "AK", "AJs", "KQs", "99"},
@@ -28,8 +29,11 @@ def hand(state: GameState) -> str:
 
 
 def myAI(state: GameState) -> Action:
-    # Goes all in with a hand in the top five of PokerRoom.com's nine tiers, and otherwise checks or folds
-    if any(hand(state) in tier for tier in TIERS[:5]):
+    # Goes all in with a hand in the top three of the nine tiers from statistics based on real play, or any hand with fewer than 10 big blinds, and otherwise checks or folds
+    # With fewer than 10 big blinds, waiting lets the blinds eat our chips, so any two cards are worth going all in with
+    big_blinds = (state.my_player.chips_in_stack + state.my_player.chips_bet) / state.big_blind
+
+    if big_blinds < 10 or any(hand(state) in tier for tier in TIERS[:3]):
         return Action.raise_by(10 ** 9)  # More than anyone has, which puts us all in
 
     to_call = max(player.chips_bet for player in state.players) - state.my_player.chips_bet
